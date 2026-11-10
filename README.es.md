@@ -1,6 +1,6 @@
 # Gryphmark
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.0.0 · GPL-2.0-only
+Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.0.1 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -44,7 +44,7 @@ pudo verificar…»). Abrí Configuración del Sistema → Privacidad y segurida
 versión podés comprobar la descarga antes:
 
 ```
-shasum -a 256 Gryphmark-1.0.0.pkg
+shasum -a 256 Gryphmark-1.0.1.pkg
 ```
 
 Gryphmark puede abrir archivos Markdown desde el Finder (clic derecho → Abrir con → Gryphmark) sin quitárselos a
@@ -68,6 +68,8 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - Al guardar se respeta tu formato: los bloques que no tocaste conservan su Markdown original, y el archivo
   conserva sus fines de línea (LF o CRLF) y su marca de orden de bytes.
 - Si Gryphmark se cierra sin guardar, al volver a abrirlo ofrece recuperar el texto.
+- Hasta que abrís un archivo propio, Gryphmark arranca con el documento de ejemplo (Ayuda → Documento de ejemplo
+  lo abre cuando quieras). En una ventana angosta, los botones de formato que no entran pasan al menú ⋯.
 - Ver → Tema… (⌘,) elige claro, oscuro o como macOS, y uno de doce colores para el resaltado y el ícono del
   Dock. El ícono en el Finder y en Launchpad sigue dorado, porque cambiarlo rompería la firma de la app.
 
@@ -96,10 +98,11 @@ para que macOS vea la misma app de una compilación a otra y no vuelva a pedir a
 `FIRMA=adhoc scripts/compilar.sh` la firma sin ese certificado, para una prueba rápida. La versión se escribe
 solo en `scripts/compilar.sh`.
 
-La autoprueba corre en una ventana real con la página real: el ejemplo, el cambio de tamaño, el tema oscuro, un
-diagrama Mermaid, un documento hostil (no puede correr ningún script), las reglas de los enlaces, guardar byte por
-byte con BOM y CRLF, la recarga en vivo al reemplazar, borrar y volver a crear, escribir y guardar muchas veces
-seguidas, los cambios sin guardar conservados, y la exportación a HTML.
+La autoprueba corre en una ventana real con la página real: el ejemplo, el cambio de tamaño (en su tamaño mínimo
+la ventana no corta nada), el tema oscuro con todo el texto legible, un diagrama Mermaid, un documento hostil (no
+puede correr ningún script), las reglas de los enlaces, guardar byte por byte con BOM y CRLF, la recarga en vivo
+al reemplazar, borrar y volver a crear, escribir y guardar muchas veces seguidas, los cambios sin guardar
+conservados, y la exportación a HTML.
 
 La página del editor (`web/`) es la de la versión para Windows. Sus bibliotecas (`web/lib`) se arman con esbuild
 desde `_npm/` con `scripts/web.sh`, que necesita Node.js; el paquete del repositorio se hizo así, con las
@@ -107,7 +110,7 @@ versiones exactas de `_npm/package-lock.json`. `scripts/manual.sh` hace los manu
 README, `scripts/capturas.sh` las imágenes de `docs/img`, y `tools/make_icons.py` el ícono y sus doce colores
 (Python con numpy y Pillow).
 
-Las versiones de las herramientas con que se compiló y probó Gryphmark 1.0.0 están en la tabla del
+Las versiones de las herramientas con que se compiló y probó Gryphmark 1.0.1 están en la tabla del
 [README en inglés](README.md#building-from-source).
 
 ## Estructura

@@ -79,6 +79,24 @@ enum SelfTest {
                   "page \(fill) in \(content)")
             check("window: resizes in both directions", abs(small.height - 500) < 2 && abs(big.height - 700) < 2 &&
                   abs(small.width - 800) < 2, "\(small) \(big)")
+            // At its narrowest the toolbar folds into a menu instead of pushing the content past the
+            // window's edges (1.0.0 cut both sides off), and the document keeps the room, not the sidebar.
+            w.setContentSize(NSSize(width: 300, height: 200))     // asks for less than allowed
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let narrow = d.web.view.convert(d.web.view.bounds, to: nil)
+            let cw = w.contentRect(forFrameRect: w.frame).width
+            check("window: never narrower than its minimum, and nothing spills past the edges",
+                  cw >= DocWindow.minContent.width - 1 && narrow.minX >= 150 && narrow.maxX <= cw + 1,
+                  "page \(narrow) in width \(cw)")
+            w.setContentSize(NSSize(width: 1180, height: 700))
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let wide = d.web.view.convert(d.web.view.bounds, to: nil)
+            check("window: a wider window widens the document, not the sidebar", wide.minX < 300, "page \(wide)")
+            let minFrame = w.frameRect(forContentRect: NSRect(origin: .zero, size: DocWindow.minContent)).size
+            let saved = AppDelegate.fitted(NSRect(x: 145, y: 177, width: 432, height: 732), min: minFrame,
+                                           on: NSRect(x: 0, y: 0, width: 1470, height: 890))
+            check("window: a saved frame smaller than allowed is enlarged", saved.width >= minFrame.width && saved.height >= minFrame.height,
+                  "\(saved)")
         }
 
         // Dark theme: its stylesheets load from the app's own scheme.
@@ -92,6 +110,23 @@ enum SelfTest {
                 """) as? Int ?? 0) > 10
         }
         check("theme: dark stylesheets load", darkOK)
+        // Every kind of text in the dark visual view is light: 1.0.0 left list items and table
+        // headers almost black, from Toast's own colours.
+        let dim = await d.web.call("""
+            const sel = ['p', 'li', 'th', 'td', 'h2'];
+            const root = document.querySelector('.toastui-editor-ww-container .toastui-editor-contents');
+            if (!root) return 'no visual view';
+            const out = [];
+            for (const t of sel) {
+              const el = root.querySelector(t);
+              if (!el) { out.push(t + ' missing'); continue; }
+              const m = getComputedStyle(el).color.match(/[0-9.]+/g).map(Number);
+              const lum = (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255;
+              if (lum < 0.6) out.push(t + ' ' + getComputedStyle(el).color);
+            }
+            return out.join(', ');
+            """) as? String ?? "no answer"
+        check("theme: dark visual text is light (lists, tables, headings)", dim.isEmpty, dim)
         Prefs.shared.theme = "light"
         _ = await wait(3) { !Prefs.shared.dark }
         await d.applyTheme()

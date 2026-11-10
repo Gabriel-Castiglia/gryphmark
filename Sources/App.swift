@@ -8,7 +8,7 @@
 //   --self-test           checks the page, the link rules, saving and live reload (SelfTest.swift)
 //   --screenshot FILE     draws a window into a PNG and quits, for the manuals; with
 //                         --view main|theme|about, --lang en|es, --theme light|dark,
-//                         --accent KEY, --mode visual|source|preview, --open FILE
+//                         --accent KEY, --mode visual|source|preview, --open FILE, --size WxH
 // Those two never read or write the preferences.
 
 import AppKit
@@ -97,7 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let files = launchFiles
         if files.isEmpty {
             let d = newWindow()
-            if !prefs.sampleShown { prefs.sampleShown = true; openSample(in: d) }
+            // Until a file of one's own has been opened, the app starts on the sample.
+            if !prefs.sampleShown || prefs.recent.isEmpty { prefs.sampleShown = true; openSample(in: d) }
         } else {
             files.forEach { open($0, from: nil) }
         }
@@ -126,15 +127,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func newWindow() -> DocWindow {
         let d = DocWindow()
         if let w = d.window {
-            if DocWindow.all.count == 1 && !w.setFrameUsingName("Document") { w.center() }
-            else if let prev = DocWindow.all.dropLast().last?.window {
+            let first = DocWindow.all.count == 1
+            if first {
+                // The saved frame is used only by the app itself, never by the self-test or the
+                // screenshot mode, and it may be smaller than the window allows or off screen.
+                if !(prefs.persist && w.setFrameUsingName("Document")) { w.center() }
+                w.setFrame(AppDelegate.fitted(w.frame, min: w.frameRect(forContentRect: NSRect(origin: .zero, size: DocWindow.minContent)).size, on: (w.screen ?? NSScreen.main)?.visibleFrame), display: false)
+            } else if let prev = DocWindow.all.dropLast().last?.window {
                 w.setFrame(prev.frame.offsetBy(dx: 26, dy: -26), display: false)
             }
-            w.setFrameAutosaveName(DocWindow.all.count == 1 ? "Document" : "")
+            if prefs.persist { w.setFrameAutosaveName(first ? "Document" : "") }
         }
         d.showWindow(nil)
         NSApp.activate()
         return d
+    }
+
+    /// A window frame no smaller than `min` and inside `screen`.
+    static func fitted(_ f: NSRect, min: NSSize, on screen: NSRect?) -> NSRect {
+        var r = f
+        r.size.width = max(r.width, min.width)
+        r.size.height = max(r.height, min.height)
+        if let v = screen {
+            r.size.width = Swift.min(r.width, v.width)
+            r.size.height = Swift.min(r.height, v.height)
+            r.origin.x = Swift.min(Swift.max(r.minX, v.minX), v.maxX - r.width)
+            r.origin.y = Swift.min(Swift.max(r.minY, v.minY), v.maxY - r.height)
+        }
+        return r
     }
 
     /// Opens a file: brings its window forward if it is open, else uses `from` (or an empty
@@ -437,7 +457,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func screenshot(to path: String) {
         let view = argument(after: "--view") ?? "main"
         let d = newWindow()
-        d.window?.setContentSize(NSSize(width: 1180, height: 760))
+        let size = argument(after: "--size")?.split(separator: "x").compactMap { Double($0) }
+        d.window?.setContentSize(size?.count == 2 ? NSSize(width: size![0], height: size![1]) : NSSize(width: 1180, height: 760))
         d.window?.center()
         let file = argument(after: "--open").map { URL(fileURLWithPath: $0) }
         d.onReady = { [weak self] in

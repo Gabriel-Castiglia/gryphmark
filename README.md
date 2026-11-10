@@ -1,6 +1,6 @@
 # Gryphmark
 
-Gabriel Castiglia · November 10, 2026 · version 1.0.0 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 1.0.1 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -44,7 +44,7 @@ could not verify…"). Open System Settings → Privacy & Security, scroll to th
 check the download first:
 
 ```
-shasum -a 256 Gryphmark-1.0.0.pkg
+shasum -a 256 Gryphmark-1.0.1.pkg
 ```
 
 Gryphmark can open Markdown files from the Finder (right-click → Open With → Gryphmark) without taking them over
@@ -67,6 +67,8 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - Saving keeps your formatting: blocks you did not touch keep their original Markdown, and the file keeps its
   line endings (LF or CRLF) and its byte order mark.
 - If Gryphmark closes without saving, the next start offers the unsaved text back.
+- Until you open a file of your own, Gryphmark starts with the sample document (Help → Sample document opens it
+  any time). In a narrow window the formatting buttons that do not fit move to the ⋯ menu.
 - View → Theme… (⌘,) chooses light, dark or as macOS, and one of twelve colours for the highlights and the icon
   in the Dock. The icon in Finder and Launchpad stays gold, because changing it would break the app's signature.
 
@@ -94,9 +96,10 @@ so macOS sees the same app from one build to the next and does not ask again for
 `FIRMA=adhoc scripts/compilar.sh` signs it without that certificate, for a quick test. The version is written
 only in `scripts/compilar.sh`.
 
-The self-test runs in a real window with the real page: the sample, resizing, the dark theme, a Mermaid diagram,
-a hostile document (no script may run), the link rules, saving byte for byte with BOM and CRLF, live reload by
-replacing, deleting and re-creating, writing and a burst of saves, unsaved changes kept, and HTML export.
+The self-test runs in a real window with the real page: the sample, resizing (at its smallest the window cuts
+nothing off), the dark theme with every kind of text readable, a Mermaid diagram, a hostile document (no script
+may run), the link rules, saving byte for byte with BOM and CRLF, live reload by replacing, deleting and
+re-creating, writing and a burst of saves, unsaved changes kept, and HTML export.
 
 The editor page (`web/`) is the one of the Windows version. Its libraries (`web/lib`) are bundled with esbuild
 from `_npm/` by `scripts/web.sh`, which needs Node.js; the bundle in the repository was made that way, with the
@@ -104,7 +107,7 @@ exact versions in `_npm/package-lock.json`. `scripts/manual.sh` makes the PDF ma
 `scripts/capturas.sh` the pictures in `docs/img`, and `tools/make_icons.py` the icon and its twelve colours
 (Python with numpy and Pillow).
 
-Gryphmark 1.0.0 was built and checked with:
+Gryphmark 1.0.1 was built and checked with:
 
 | Tool | Version |
 |---|---|

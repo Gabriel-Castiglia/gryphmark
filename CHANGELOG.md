@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 — 2026-11-10
+
+- The window could be made narrower than its content, which then lost both edges: the toolbar, the sidebar and the
+  document were cut off. The window now keeps a minimum size, a saved size that is too small is enlarged, and in a
+  narrow window the formatting buttons that do not fit move to a ⋯ menu. A wider window widens the document, not
+  the sidebar.
+- The app starts with the sample document until you open a file of your own. Before, the sample showed only on
+  the very first start.
+- Dark theme: list items and table headers in the visual view were almost black on the dark page; they now have
+  the colour of the rest of the text (also fixed in Gryphmark 1.8.1 for Windows).
+
 ## 1.0.0 — 2026-11-10
 
 First version for macOS, made from Gryphmark 1.8.0 for Windows.

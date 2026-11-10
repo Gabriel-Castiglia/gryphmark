@@ -47,12 +47,12 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     var onReady: (() -> Void)?
 
     static var all: [DocWindow] = []
+    static let minContent = NSSize(width: 760, height: 452)
 
     init() {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
                          backing: .buffered, defer: false)
-        w.minSize = NSSize(width: 760, height: 480)
         w.titlebarAppearsTransparent = false
         w.tabbingMode = .disallowed
         super.init(window: w)

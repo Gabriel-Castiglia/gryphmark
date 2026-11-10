@@ -140,6 +140,7 @@ let STRINGS: [String: [String]] = [
     "SelectAll": ["Select All", "Seleccionar todo"],
     "ShowAll": ["Show All", "Mostrar todo"],
     "Sidebar": ["Show sidebar", "Mostrar barra lateral"],
+    "MoreTools": ["More formatting", "Más formato"],
     "Spell": ["Spell check", "Corrector ortográfico"],
     "Strike": ["Strikethrough", "Tachado"],
     "Table": ["Insert table", "Insertar tabla"],

@@ -13,6 +13,10 @@ struct NSHostingViewFor {
     func make() -> NSView {
         let v = NSHostingView(rootView: RootView(doc: doc, model: doc.model, prefs: Prefs.shared))
         v.sizingOptions = []          // the window decides its size, not the content
+        // With no sizing options the hosting view also clears the window's minimum size, so the
+        // minimum is held by constraints (1.0.0 could be dragged down to a strip that cut it all).
+        v.widthAnchor.constraint(greaterThanOrEqualToConstant: DocWindow.minContent.width).isActive = true
+        v.heightAnchor.constraint(greaterThanOrEqualToConstant: DocWindow.minContent.height).isActive = true
         return v
     }
 }
@@ -34,7 +38,7 @@ struct RootView: View {
             Divider()
             HSplitView {
                 if prefs.sidebar {
-                    Sidebar(doc: doc, model: model, prefs: prefs).frame(minWidth: 180, idealWidth: 240, maxWidth: 420, maxHeight: .infinity)
+                    Sidebar(doc: doc, model: model, prefs: prefs).frame(minWidth: 240, idealWidth: 240, maxWidth: 420, maxHeight: .infinity)
                 }
                 VStack(spacing: 0) {
                     if model.findVisible { FindBar(doc: doc, model: model); Divider() }
@@ -43,6 +47,7 @@ struct RootView: View {
                     StatusLine(model: model, prefs: prefs)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(1)          // the document takes the room a wider window adds, not the sidebar
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -58,16 +63,57 @@ struct ToolbarView: View {
     let doc: DocWindow
     @ObservedObject var prefs: Prefs
 
-    private func tool(_ symbol: String, _ tip: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: symbol).frame(width: 18, height: 18) }
-            .buttonStyle(.borderless).help(tip).disabled(prefs.readOnly || prefs.mode == "preview")
+    private struct Tool { let symbol, tip: String; let action: () -> Void }
+
+    private var off: Bool { prefs.readOnly || prefs.mode == "preview" }
+
+    private var inline: [Tool] { [
+        Tool(symbol: "bold", tip: L("Bold")) { doc.exec("bold") },
+        Tool(symbol: "italic", tip: L("Italic")) { doc.exec("italic") },
+        Tool(symbol: "strikethrough", tip: L("Strike")) { doc.exec("strike") },
+        Tool(symbol: "chevron.left.forwardslash.chevron.right", tip: L("Code")) { doc.exec("code") },
+    ] }
+    private var lists: [Tool] { [
+        Tool(symbol: "list.bullet", tip: L("Ul")) { doc.exec("bulletList") },
+        Tool(symbol: "list.number", tip: L("Ol")) { doc.exec("orderedList") },
+        Tool(symbol: "checklist", tip: L("Task")) { doc.exec("taskList") },
+        Tool(symbol: "decrease.indent", tip: L("Outdent")) { doc.exec("outdent") },
+        Tool(symbol: "increase.indent", tip: L("Indent")) { doc.exec("indent") },
+    ] }
+    private var blocks: [Tool] { [
+        Tool(symbol: "text.quote", tip: L("Quote")) { doc.exec("blockQuote") },
+        Tool(symbol: "curlybraces", tip: L("CodeBlock")) { doc.exec("codeBlock") },
+        Tool(symbol: "tablecells", tip: L("Table")) { doc.insertTable() },
+        Tool(symbol: "link", tip: L("Link")) { doc.insertLink() },
+        Tool(symbol: "photo", tip: L("Image")) { doc.insertImage() },
+        Tool(symbol: "minus", tip: L("Hr")) { doc.exec("hr") },
+    ] }
+
+    private func buttons(_ tools: [Tool]) -> some View {
+        ForEach(tools, id: \.symbol) { t in
+            Button(action: t.action) { Image(systemName: t.symbol).frame(width: 18, height: 18) }
+                .buttonStyle(.borderless).help(t.tip).disabled(off)
+        }
     }
+
+    /// The groups that do not fit in a narrow window go into this menu.
+    private func more(_ groups: [[Tool]]) -> some View {
+        Menu {
+            ForEach(Array(groups.enumerated()), id: \.offset) { i, g in
+                if i > 0 { Divider() }
+                ForEach(g, id: \.symbol) { t in Button(action: t.action) { Label(t.tip, systemImage: t.symbol) } }
+            }
+        } label: { Image(systemName: "ellipsis.circle") }
+            .menuStyle(.borderlessButton).fixedSize().help(L("MoreTools")).disabled(off)
+    }
+
+    private var sep: some View { Divider().frame(height: 18) }
 
     var body: some View {
         HStack(spacing: 6) {
             Button { prefs.sidebar.toggle() } label: { Image(systemName: "sidebar.left") }
                 .buttonStyle(.borderless).help(L("Sidebar"))
-            Divider().frame(height: 18)
+            sep
             Menu {
                 ForEach(1 ... 6, id: \.self) { n in
                     Button("H\(n)") { doc.exec("heading", ["level": n]) }
@@ -75,24 +121,16 @@ struct ToolbarView: View {
                 Button(L("Paragraph")) { doc.exec("heading", ["level": 0]) }
             } label: { Text("H").font(.system(size: 13, weight: .bold)) }
                 .menuStyle(.borderlessButton).fixedSize().help(L("Heading"))
-                .disabled(prefs.readOnly || prefs.mode == "preview")
-            tool("bold", L("Bold")) { doc.exec("bold") }
-            tool("italic", L("Italic")) { doc.exec("italic") }
-            tool("strikethrough", L("Strike")) { doc.exec("strike") }
-            tool("chevron.left.forwardslash.chevron.right", L("Code")) { doc.exec("code") }
-            Divider().frame(height: 18)
-            tool("list.bullet", L("Ul")) { doc.exec("bulletList") }
-            tool("list.number", L("Ol")) { doc.exec("orderedList") }
-            tool("checklist", L("Task")) { doc.exec("taskList") }
-            tool("decrease.indent", L("Outdent")) { doc.exec("outdent") }
-            tool("increase.indent", L("Indent")) { doc.exec("indent") }
-            Divider().frame(height: 18)
-            tool("text.quote", L("Quote")) { doc.exec("blockQuote") }
-            tool("curlybraces", L("CodeBlock")) { doc.exec("codeBlock") }
-            tool("tablecells", L("Table")) { doc.insertTable() }
-            tool("link", L("Link")) { doc.insertLink() }
-            tool("photo", L("Image")) { doc.insertImage() }
-            tool("minus", L("Hr")) { doc.exec("hr") }
+                .disabled(off)
+            // The whole toolbar must fit the window: the widest arrangement that fits is used.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { buttons(inline); sep; buttons(lists); sep; buttons(blocks) }
+                HStack(spacing: 6) { buttons(inline); sep; buttons(lists); more([blocks]) }
+                HStack(spacing: 6) { buttons(inline); more([lists, blocks]) }
+                HStack(spacing: 6) { more([inline, lists, blocks]) }
+            }
+            .frame(minWidth: 0, alignment: .leading)
+            .layoutPriority(-1)
             Spacer(minLength: 8)
             Picker("", selection: Binding(get: { prefs.readOnly }, set: { doc.setReadOnly($0) })) {
                 Text(L("SegEdit")).tag(false).help(L("TipEdit"))
