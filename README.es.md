@@ -1,10 +1,11 @@
-# Gryphmark
+<p align="center"><img src="icono/icono-1024.png" width="140" alt="Gryphmark"></p>
+
+<h1 align="center">Gryphmark</h1>
+<p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
 Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.0.1 · GPL-2.0-only
 
 [English](README.md) · Español
-
-Repositorio: <https://github.com/Gabriel-Castiglia/gryphmark>
 
 Versión para Windows: <https://github.com/Gabriel-Castiglia/gryphmark-windows>
 
@@ -33,7 +34,7 @@ tenés cambios sin guardar, pregunta antes de reemplazarlos.
 
 ## Instalación
 
-Bajá `Gryphmark-<versión>.pkg` de la [página de versiones](https://github.com/Gabriel-Castiglia/gryphmark/releases)
+Bajá `Gryphmark-<versión>.pkg` de la [página de versiones](https://github.com/Gabriel-Castiglia/gryphmark/releases/latest)
 y abrilo. El instalador está en español o inglés, según el idioma de la Mac. Pone `Gryphmark.app` en
 `/Applications` y, si había una copia abierta, la cierra antes; instalar un paquete más nuevo conserva la
 configuración.
