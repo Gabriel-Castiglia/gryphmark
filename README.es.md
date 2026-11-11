@@ -69,6 +69,13 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - Al guardar se respeta tu formato: los bloques que no tocaste conservan su Markdown original, y el archivo
   conserva sus fines de línea (LF o CRLF) y su marca de orden de bytes.
 - Si Gryphmark se cierra sin guardar, al volver a abrirlo ofrece recuperar el texto.
+- Los enlaces `[[nombre]]` de la vista GitHub abren el archivo Markdown de ese nombre en las carpetas abiertas,
+  como en una wiki; el que no lleva a ningún archivo sale en rojo. Un documento que está dentro de una carpeta del
+  panel de archivos puede enlazar a las otras carpetas del panel, con `../` como en el disco.
+- Instancias dedicadas: clic derecho en un archivo o una carpeta del panel de archivos → *Abrir en una instancia
+  dedicada*. Queda como una app propia en Aplicaciones de tu carpeta de inicio, con sus ajustes y el color de su
+  ícono, y la podés dejar en el Dock. Desde la Terminal:
+  `Gryphmark.app/Contents/MacOS/Gryphmark --make-instance "Notas" --accent red --folder ~/Notas --read-only --mode preview`.
 - Hasta que abrís un archivo propio, Gryphmark arranca con el documento de ejemplo (Ayuda → Documento de ejemplo
   lo abre cuando quieras). En una ventana angosta, los botones de formato que no entran pasan al menú ⋯.
 - Ver → Tema… (⌘,) elige claro, oscuro o como macOS, y uno de doce colores para el resaltado y el ícono del
@@ -82,7 +89,7 @@ Un documento no puede ejecutar nada. El HTML que trae un archivo Markdown se lim
 vista GitHub o una exportación lo muestren. Los enlaces solo abren páginas web, correo, otros archivos Markdown
 (en Gryphmark), imágenes y PDF; un enlace a cualquier otro archivo, como un programa o un script, solo lo muestra
 en el Finder. La página del editor no llega a nada más que sus propios archivos y la carpeta del documento
-abierto.
+abierto o, si el documento está dentro de una carpeta del panel de archivos, las carpetas del panel.
 
 ## Compilar
 

@@ -68,6 +68,13 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - Saving keeps your formatting: blocks you did not touch keep their original Markdown, and the file keeps its
   line endings (LF or CRLF) and its byte order mark.
 - If Gryphmark closes without saving, the next start offers the unsaved text back.
+- `[[name]]` links in the GitHub view open the Markdown file of that name in the open folders, as in a wiki; one
+  that matches no file is shown in red. A document inside a folder of the Files panel can link to the other
+  folders of the panel, with `../` as on disk.
+- Dedicated instances: right-click a file or a folder in the Files panel → *Open in a dedicated instance*. It
+  becomes an app of its own in Applications in your home folder, with its own settings and icon colour, that
+  you can keep in the Dock. From Terminal:
+  `Gryphmark.app/Contents/MacOS/Gryphmark --make-instance "Notes" --accent red --folder ~/Notes --read-only --mode preview`.
 - Until you open a file of your own, Gryphmark starts with the sample document (Help → Sample document opens it
   any time). In a narrow window the formatting buttons that do not fit move to the ⋯ menu.
 - View → Theme… (⌘,) chooses light, dark or as macOS, and one of twelve colours for the highlights and the icon
@@ -80,7 +87,8 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 A document cannot run anything. The HTML inside a Markdown file is cleaned with DOMPurify before the GitHub view
 or an export shows it. Links open only web pages, e-mail, other Markdown files (in Gryphmark), pictures and PDFs;
 a link to any other file, such as a program or a script, only shows it in the Finder. The page of the editor
-reaches nothing but its own files and the folder of the open document.
+reaches nothing but its own files and the folder of the open document, or, for a document inside a folder of the
+Files panel, the folders of the panel.
 
 ## Building from source
 

@@ -5,6 +5,9 @@
 
 import AppKit
 
+// gryphmark --make-instance "Name" …: makes a dedicated instance without opening a window (Instances.swift).
+if CommandLine.arguments.contains("--make-instance") { Instance.makeFromCommandLine(CommandLine.arguments) }
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

@@ -104,3 +104,9 @@ body.dark .toastui-editor-dark .toastui-editor-md-container { background: #0d111
   #preview { padding: 0; max-width: none; }
   html, body { overflow: visible; height: auto; }
 }
+
+/* [[name]] links of the GitHub view; a missing one is red and dashed */
+#preview a.wikilink { text-decoration: none; border-bottom: 1px dotted currentColor; }
+#preview a.wikilink:hover { border-bottom-style: solid; }
+#preview a.wikilink.missing { color: #cf222e; border-bottom: 1px dashed currentColor; cursor: help; }
+body.dark #preview a.wikilink.missing { color: #ff7b72; }

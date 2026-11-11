@@ -12,6 +12,7 @@
 // changes in the window, the user is asked first.
 
 import AppKit
+import Combine
 import UniformTypeIdentifiers
 import WebKit
 
@@ -45,6 +46,8 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     private var recoveryTimer: Timer?
     let recoveryID = UUID().uuidString
     var onReady: (() -> Void)?
+    private(set) var reach: [URL] = []       // what the document's links and pictures may reach (Wiki.reach)
+    private var foldersWatch: AnyCancellable?
 
     static var all: [DocWindow] = []
     static let minContent = NSSize(width: 760, height: 452)
@@ -65,7 +68,23 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         DocWindow.all.append(self)
         updateTitle()
         recoveryTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.writeRecovery() }
+        // A folder added to or closed in the Files panel changes what the open document may reach.
+        foldersWatch = prefs.$folders.dropFirst().receive(on: RunLoop.main).sink { [weak self] f in
+            guard let self, let dir = self.model.path?.deletingLastPathComponent() else { return }
+            self.applyReach(dir, panel: f)
+            Task { @MainActor in await self.markWikiLinks() }
+        }
     }
+
+    /// Serves and lets links open only what the document in `dir` may reach.
+    func applyReach(_ dir: URL?, panel: [String]? = nil) {
+        reach = Wiki.reach(docFolder: dir, panel: panel ?? prefs.folders)
+        web.setReach(reach)
+    }
+
+    /// The GitHub view asks which [[names]] exist again (after the panel folders changed).
+    @MainActor
+    func markWikiLinks() async { await web.call("mdApp.refreshWikiLinks()") }
 
     required init?(coder: NSCoder) { fatalError("not used") }
 
@@ -94,6 +113,14 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         case "lockedHint": flash(L("LockedHint"))
         case "cmd": if let c = m["cmd"] as? String { command(c) }
         case "link": if let h = m["href"] as? String { openLink(h) }
+        case "wikilink": if let n = m["name"] as? String { openWiki(n) }
+        case "wikinames":
+            let names = (m["names"] as? [String]) ?? []
+            let dir = model.path?.deletingLastPathComponent(), panel = prefs.folders
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let found = Wiki.exist(names, from: dir, panel: panel)
+                DispatchQueue.main.async { Task { @MainActor in await self?.web.call("mdApp.wikiState(s)", ["s": found]) } }
+            }
         case "export": writeExport(m)
         case "printReady": printNow()
         case "crashed": web.view.reload()
@@ -166,7 +193,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     func updateTitle() {
         let name = model.path?.lastPathComponent ?? (model.isSample ? L("SampleTitle") : L("Untitled"))
-        window?.title = name
+        window?.title = Instance.profile.map { name + " — " + $0 } ?? name
         window?.representedURL = model.path
         window?.isDocumentEdited = model.dirty
     }
@@ -200,8 +227,8 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         let url = url.standardizedFileURL
         do {
             let r = try DocWindow.read(url)
-            web.setDocumentFolder(url.deletingLastPathComponent())
-            await web.call("mdApp.load(t, b)", ["t": r.text, "b": Schemes.docBase])
+            applyReach(url.deletingLastPathComponent())
+            await web.call("mdApp.load(t, b)", ["t": r.text, "b": Schemes.docBase(for: url.deletingLastPathComponent())])
             model.path = url; model.dirty = false; model.isSample = false
             model.bom = r.bom; model.crlf = r.crlf
             diskText = r.text
@@ -223,7 +250,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     @MainActor
     func loadText(_ text: String, sample: Bool) async {
-        web.setDocumentFolder(nil)
+        applyReach(nil)
         await web.call("mdApp.load(t, null)", ["t": text])
         model.path = nil; model.dirty = false; model.isSample = sample
         model.bom = false; model.crlf = false
@@ -260,7 +287,10 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             try data.write(to: target, options: .atomic)
             let moved = target != model.path
             model.path = target; model.dirty = false; model.isSample = false
-            if moved { web.setDocumentFolder(target.deletingLastPathComponent()) }
+            if moved {
+                applyReach(target.deletingLastPathComponent())
+                await web.call("mdApp.setBase(b)", ["b": Schemes.docBase(for: target.deletingLastPathComponent())])
+            }
             watch(target)
             clearRecovery()
             prefs.addRecent(target.path)
@@ -376,7 +406,9 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     static var recoveryFolder: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Gryphmark/recovery", isDirectory: true)
+        // each dedicated instance keeps its drafts apart, so the main app never offers them
+        let own = Instance.profile.map { "Gryphmark/profiles/" + Instance.bundleID($0) + "/recovery" } ?? "Gryphmark/recovery"
+        return base.appendingPathComponent(own, isDirectory: true)
     }
 
     private var recoveryFile: URL { DocWindow.recoveryFolder.appendingPathComponent(recoveryID + ".json") }
@@ -402,12 +434,23 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     // MARK: links
 
     func openLink(_ href: String) {
-        switch LinkPolicy.decide(href, documentFolder: model.path?.deletingLastPathComponent()) {
+        switch LinkPolicy.decide(href, reach: reach) {
         case .openDocument(let u): (NSApp.delegate as? AppDelegate)?.open(u, from: self)
         case .openViewer(let u): NSWorkspace.shared.open(u)
         case .reveal(let u): NSWorkspace.shared.activateFileViewerSelecting([u])
         case .external(let u): NSWorkspace.shared.open(u)
         case .ignore: break
+        }
+    }
+
+    /// A [[name]] of the GitHub view: the file of that name nearest the document, in the panel folders
+    /// or next to the document.
+    func openWiki(_ name: String) {
+        Wiki.forget()
+        if let u = Wiki.resolve(name, from: model.path?.deletingLastPathComponent(), panel: prefs.folders) {
+            (NSApp.delegate as? AppDelegate)?.open(u, from: self)
+        } else {
+            flash(L("WikiMissing", Wiki.key(name)))
         }
     }
 

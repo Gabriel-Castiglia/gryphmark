@@ -5,8 +5,10 @@
 //
 // The page (web/) is the one of the Windows version. On Windows it is served from
 // https://app.local/ and the document's folder from https://doc.local/; here two private schemes
-// do the same: gm-app://app/ serves the app's own web folder and gm-doc://doc/ the folder of the
-// open document, so relative pictures show. Nothing else can be loaded: every other navigation
+// do the same: gm-app://app/ serves the app's own web folder and gm-doc://doc/<path> the files a
+// document may reach (its folder, or the Files panel folders: Wiki.swift), so relative pictures
+// and links work. The page's base is the document's own folder under gm-doc://doc/, so ../ links
+// resolve as on disk; the handler refuses anything outside the reach. Every other navigation
 // is cancelled and handed to the link policy (LinkPolicy.swift). The page talks to the app through
 // window.chrome.webview.postMessage, which a small script maps to WebKit's message handler.
 
@@ -18,6 +20,41 @@ enum Schemes {
     static let doc = "gm-doc"
     static let appBase = "gm-app://app/"
     static let docBase = "gm-doc://doc/"
+
+    /// The page base for a document in `dir`: gm-doc://doc/<absolute path of dir>/.
+    static func docBase(for dir: URL?) -> String {
+        guard let dir else { return docBase }
+        var c = URLComponents()
+        c.scheme = doc; c.host = "doc"; c.path = dir.standardizedFileURL.path
+        let s = c.string ?? docBase
+        return s.hasSuffix("/") ? s : s + "/"
+    }
+
+    /// The file a gm-doc address stands for (no check of reach here).
+    static func file(of url: URL) -> URL? {
+        guard url.scheme == doc else { return nil }
+        let p = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath.removingPercentEncoding ?? url.path
+        return p.hasPrefix("/") ? URL(fileURLWithPath: p).standardizedFileURL : nil
+    }
+}
+
+/// Serves gm-doc://doc/<absolute path> for files inside `reach`, never outside it.
+final class DocSchemeHandler: NSObject, WKURLSchemeHandler {
+    var reach: [URL] = []
+
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        guard let url = task.request.url, let file = Schemes.file(of: url), Wiki.inside(file, any: reach),
+              let data = try? Data(contentsOf: file.resolvingSymlinksInPath()) else {
+            task.didFailWithError(URLError(.fileDoesNotExist)); return
+        }
+        let type = FolderSchemeHandler.types[file.pathExtension.lowercased()] ?? "application/octet-stream"
+        task.didReceive(HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
+                                        headerFields: ["Content-Type": type, "Content-Length": "\(data.count)"])!)
+        task.didReceive(data)
+        task.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
 }
 
 /// Serves files under `root` for one scheme, never outside it.
@@ -67,7 +104,7 @@ final class FolderSchemeHandler: NSObject, WKURLSchemeHandler {
 /// One editor page. Messages from the page go to `onMessage`; links to `onLink`.
 final class EditorWeb: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let view: WKWebView
-    let docHandler = FolderSchemeHandler(root: nil, rewriteIndex: false)
+    let docHandler = DocSchemeHandler()
     var onMessage: (([String: Any]) -> Void)?
     var onLink: ((String) -> Void)?
     var onFileDrop: ((URL) -> Void)?
@@ -97,8 +134,8 @@ final class EditorWeb: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         view.load(URLRequest(url: URL(string: Schemes.appBase + "index.html")!))
     }
 
-    /// The folder relative pictures and links of the document come from (nil: none).
-    func setDocumentFolder(_ dir: URL?) { docHandler.root = dir }
+    /// The folders the document's pictures may come from (Wiki.reach).
+    func setReach(_ folders: [URL]) { docHandler.reach = folders }
 
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
         if let d = message.body as? [String: Any] { onMessage?(d) }

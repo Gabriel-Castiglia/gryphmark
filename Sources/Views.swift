@@ -226,6 +226,7 @@ struct Sidebar: View {
                             Text(root.url.lastPathComponent).foregroundStyle(prefs.highlight)
                                 .contextMenu {
                                     Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([root.url]) }
+                                    Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(root.url, from: doc) }
                                     Button(L("FolderCloseOne")) { prefs.folders.removeAll { $0 == f } }
                                     Button(L("FolderCloseAll")) { prefs.folders = [] }
                                 }
@@ -278,6 +279,7 @@ struct FileRow: View {
                     Button(L("OpenNewWindow")) { (NSApp.delegate as? AppDelegate)?.open(node.url, from: nil) }
                 }
                 Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([node.url]) }
+                Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(node.url, from: doc) }
                 Button(L("CopyPath")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(node.url.path, forType: .string)

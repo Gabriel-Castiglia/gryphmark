@@ -12,10 +12,17 @@
 //   - live reload: a save by rename over the file, a delete and re-create, and a plain write
 //     each show the new text, without marking the document modified; with unsaved changes the
 //     window keeps its text and asks instead;
-//   - export to HTML carries the text and no scripts.
+//   - export to HTML carries the text and no scripts;
+//   - reach: a document inside a Files panel folder links with ../ to every panel folder, a document
+//     outside them only to its own folder, and nothing outside is ever opened;
+//   - [[name]] links: found in the other panel folder, the nearest wins, missing ones are marked in the
+//     GitHub view, code is left alone, and a click opens the file;
+//   - a dedicated instance: its own identifier and icon, no Markdown file types, a valid signature,
+//     the spec read back, and its settings seeded apart from the main app's.
 // Temporary files go to a fresh folder that is removed at the end. Exit 0 when all pass.
 
 import AppKit
+import ImageIO
 
 enum SelfTest {
     private static var failures = 0
@@ -174,13 +181,15 @@ enum SelfTest {
         for (name, content) in [("run.command", "#!/bin/sh\n"), ("note.md", "# n\n"), ("pic.png", "x"), ("app.sh", "#!/bin/sh\n")] {
             try? Data(content.utf8).write(to: tmp.appendingPathComponent(name))
         }
+        let base = Schemes.docBase(for: tmp)
         let rules: [(String, LinkAction)] = [
-            (Schemes.docBase + "run.command", .reveal(tmp.appendingPathComponent("run.command").standardizedFileURL)),
-            (Schemes.docBase + "app.sh", .reveal(tmp.appendingPathComponent("app.sh").standardizedFileURL)),
-            (Schemes.docBase + "note.md", .openDocument(tmp.appendingPathComponent("note.md").standardizedFileURL)),
-            (Schemes.docBase + "pic.png", .openViewer(tmp.appendingPathComponent("pic.png").standardizedFileURL)),
-            (Schemes.docBase + "../../etc/hosts", .ignore),
-            (Schemes.docBase + "missing.md", .ignore),
+            (base + "run.command", .reveal(tmp.appendingPathComponent("run.command").standardizedFileURL)),
+            (base + "app.sh", .reveal(tmp.appendingPathComponent("app.sh").standardizedFileURL)),
+            (base + "note.md", .openDocument(tmp.appendingPathComponent("note.md").standardizedFileURL)),
+            (base + "pic.png", .openViewer(tmp.appendingPathComponent("pic.png").standardizedFileURL)),
+            (base + "../../etc/hosts", .ignore),
+            (base + "missing.md", .ignore),
+            (Schemes.docBase + "etc/hosts", .ignore),
             ("file://" + tmp.appendingPathComponent("run.command").path, .ignore),
             ("javascript:alert(1)", .ignore),
             ("x-apple.systempreferences:", .ignore),
@@ -189,13 +198,13 @@ enum SelfTest {
         ]
         var badRule = ""
         for (href, want) in rules {
-            let got = LinkPolicy.decide(href, documentFolder: tmp)
-            if got != want && !(href.contains("etc/hosts") && got != .openDocument(URL(fileURLWithPath: "/etc/hosts"))) {
+            let got = LinkPolicy.decide(href, reach: [tmp])
+            if got != want {
                 badRule = "\(href) -> \(got)"
             }
         }
         // ../../etc/hosts leaves the document folder: it may at most be revealed, never opened or run.
-        let escape = LinkPolicy.decide(Schemes.docBase + "../../../../../../etc/hosts", documentFolder: tmp)
+        let escape = LinkPolicy.decide(base + "../../../../../../etc/hosts", reach: [tmp])
         check("links: programs only shown in the Finder, nothing else opens", badRule.isEmpty, badRule)
         check("links: a path out of the folder is never opened", escape == .ignore || { if case .reveal = escape { return true }; return false }(),
               "\(escape)")
@@ -246,6 +255,9 @@ enum SelfTest {
         try? await Task.sleep(nanoseconds: 200_000_000)
         d.model.dirty = false
 
+        await reachAndWiki(d, tmp)
+        await dedicated(tmp)
+
         // Export.
         await d.loadText("# Exported\n\nA paragraph with `code`.\n\n<script>alert(1)</script>\n", sample: false)
         let out = tmp.appendingPathComponent("out.html")
@@ -258,5 +270,126 @@ enum SelfTest {
         FileHandle.standardError.write(Data((failures == 0 ? "self-test: all passed\n" : "self-test: \(failures) failed\n").utf8))
         try? fm.removeItem(at: tmp)
         exit(failures == 0 ? 0 : 1)
+    }
+
+    // Two panel folders, as the wiki of indices and memories: indices/home.md and memories/topic/a.md.
+    @MainActor
+    private static func reachAndWiki(_ d: DocWindow, _ tmp: URL) async {
+        let fm = FileManager.default
+        let idx = tmp.appendingPathComponent("indices", isDirectory: true)
+        let mem = tmp.appendingPathComponent("memories/topic", isDirectory: true)
+        let other = tmp.appendingPathComponent("elsewhere", isDirectory: true)
+        for f in [idx, mem, other, tmp.appendingPathComponent("memories/far", isDirectory: true)] {
+            try? fm.createDirectory(at: f, withIntermediateDirectories: true)
+        }
+        let a = mem.appendingPathComponent("note-a.md"), far = tmp.appendingPathComponent("memories/far/note-a.md")
+        let home = idx.appendingPathComponent("home.md"), lone = other.appendingPathComponent("lone.md")
+        try? Data("# A\n\nBack to [[home|the start]].\n".utf8).write(to: a)
+        try? Data("# far A\n".utf8).write(to: far)
+        try? Data("# Home\n\n[[note-a]] · [[Note-A.md|same]] · [[gone]] · `[[in code]]` · [rel](../memories/topic/note-a.md)\n".utf8).write(to: home)
+        try? Data("# Lone\n".utf8).write(to: lone)
+        let panel = [idx.path, tmp.appendingPathComponent("memories").path]
+
+        let inReach = Wiki.reach(docFolder: idx, panel: panel)
+        let resolved = URL(string: "../memories/topic/note-a.md", relativeTo: URL(string: Schemes.docBase(for: idx)))?.absoluteString ?? ""
+        check("reach: ../ from a panel folder opens a file of another panel folder",
+              LinkPolicy.decide(resolved, reach: inReach) == .openDocument(a.standardizedFileURL), "\(resolved) -> \(LinkPolicy.decide(resolved, reach: inReach))")
+        let outReach = Wiki.reach(docFolder: other, panel: panel)
+        check("reach: a document outside the panel folders reaches only its own folder",
+              outReach == [other.standardizedFileURL] && LinkPolicy.decide(Schemes.docBase(for: a.deletingLastPathComponent()) + "note-a.md", reach: outReach) == .ignore,
+              "\(outReach)")
+        check("reach: a file outside every folder is never opened",
+              LinkPolicy.decide(Schemes.docBase + "etc/hosts", reach: inReach) == .ignore)
+
+        check("wiki: a name is found in the other panel folder, the nearest copy wins",
+              Wiki.resolve("note-a", from: mem, panel: panel) == a.standardizedFileURL
+                  && Wiki.resolve("note-a", from: far.deletingLastPathComponent(), panel: panel) == far.standardizedFileURL
+                  && Wiki.resolve("HOME.md#top", from: mem, panel: panel) == home.standardizedFileURL,
+              "\(String(describing: Wiki.resolve("note-a", from: mem, panel: panel)))")
+        check("wiki: a missing name is missing", Wiki.resolve("gone", from: idx, panel: panel) == nil)
+
+        // The GitHub view: links made, the missing one marked, code left alone; a click opens the file.
+        let saved = Prefs.shared.folders
+        Prefs.shared.folders = panel
+        await d.load(home)
+        d.setMode("preview")
+        let marked = await wait(5) {
+            ((await d.web.call("return document.querySelectorAll('#preview a.wikilink.missing').length") as? Int) ?? 0) == 1
+        }
+        let links = (await d.web.call("return Array.from(document.querySelectorAll('#preview a.wikilink')).map(a => a.dataset.wiki + '=' + a.textContent + (a.classList.contains('missing') ? '!' : '')).join(' ')") as? String) ?? ""
+        let code = (await d.web.call("return document.querySelector('#preview code').textContent") as? String) ?? ""
+        let text = (await d.web.call("return mdApp.getMarkdownPreserving()") as? String) ?? ""
+        check("wiki: links in the GitHub view, the missing one marked, code and text untouched",
+              marked && links == "note-a=note-a Note-A.md=same gone=gone!" && code == "[[in code]]" && text.contains("[[note-a]]"),
+              "\(marked) \(links) | \(code) | \(text)")
+        await d.web.call("document.querySelector('#preview a.wikilink').click()")
+        let opened = await wait(5) { DocWindow.all.contains { $0.model.path == a.standardizedFileURL } }
+        check("wiki: a click opens the file", opened, "\(DocWindow.all.compactMap { $0.model.path?.path })")
+        if d.model.path != home { await d.load(home) }
+        // the same with a plain ../ link, resolved by WebKit against the document's base
+        for w in DocWindow.all where w !== d { w.model.dirty = false; w.close() }
+        d.setMode("preview")
+        _ = await wait(3) { ((await d.web.call("return document.querySelectorAll('#preview a.wikilink').length") as? Int) ?? 0) == 3 }
+        await d.web.call("document.querySelector('#preview a:not(.wikilink)').click()")
+        let relOpened = await wait(5) { DocWindow.all.contains { $0.model.path == a.standardizedFileURL } }
+        check("reach: a ../ link clicked in the GitHub view opens the file", relOpened,
+              "\(DocWindow.all.compactMap { $0.model.path?.path })")
+        if d.model.path != home { await d.load(home) }
+        d.setMode("visual")
+        // an edit in the visual view of the paragraph that holds the links keeps them as written
+        await d.web.call("const v = mdApp._view(); v.dispatch(v.state.tr.insertText(' edited', v.state.doc.content.size - 1))")
+        let edited = (await d.web.call("return mdApp.getMarkdownPreserving()") as? String) ?? ""
+        check("wiki: editing in the visual view keeps the [[links]]",
+              edited.contains("edited") && edited.contains("[[note-a]] · [[Note-A.md|same]] · [[gone]]"), edited)
+        d.model.dirty = false
+        await d.load(home)
+        Prefs.shared.folders = saved
+    }
+
+    // A dedicated instance made from this app into a temporary Applications folder.
+    @MainActor
+    private static func dedicated(_ tmp: URL) async {
+        let fm = FileManager.default
+        let keep = Instance.appsFolder
+        Instance.appsFolder = tmp.appendingPathComponent("Applications", isDirectory: true)
+        defer { Instance.appsFolder = keep }
+        let name = "Self-test Ñandú \(Int.random(in: 1000...9999))"
+        let spec = Instance.Spec(name: name, accent: "red", folders: [tmp.path], home: tmp.appendingPathComponent("x.md").path,
+                                 startReadOnly: true, startMode: "preview")
+        let id = Instance.bundleID(name)
+        defer { UserDefaults.standard.removePersistentDomain(forName: id) }
+        do {
+            let app = try Instance.make(spec, from: Bundle.main.bundleURL)
+            let p = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) as? [String: Any] ?? [:]
+            let icns = app.appendingPathComponent("Contents/Resources/Gryphmark.icns")
+            let widths: [Int] = CGImageSourceCreateWithURL(icns as CFURL, nil).map { s in
+                (0..<CGImageSourceGetCount(s)).compactMap { CGImageSourceCreateImageAtIndex(s, $0, nil)?.width }
+            } ?? []
+            let verify = Process()
+            verify.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+            verify.arguments = ["--verify", "--strict", app.path]
+            try verify.run(); verify.waitUntilExit()
+            let seeded = UserDefaults(suiteName: id)
+            check("instance: own identifier and name, no Markdown file types",
+                  p["CFBundleIdentifier"] as? String == id && id.hasPrefix(Instance.mainID + ".profile.self-test-nandu-")
+                      && p["CFBundleDocumentTypes"] == nil && app.lastPathComponent == name + " (Gryphmark).app",
+                  "\(p["CFBundleIdentifier"] ?? "nil") \(app.lastPathComponent)")
+            check("instance: icon in its colour and a valid signature",
+                  widths.contains(16) && widths.contains(512) && verify.terminationStatus == 0, "sizes \(widths), codesign \(verify.terminationStatus)")
+            check("instance: the spec reads back", Instance.spec(of: app) == spec, "\(String(describing: Instance.spec(of: app)))")
+            check("instance: settings seeded apart from the main app",
+                  seeded?.string(forKey: "Accent") == "red" && seeded?.stringArray(forKey: "Folders") == [tmp.path]
+                      && seeded?.bool(forKey: "ReadOnly") == true && seeded?.string(forKey: "Mode") == "preview",
+                  "\(seeded?.dictionaryRepresentation().filter { ["Accent", "Folders", "ReadOnly", "Mode"].contains($0.key) } ?? [:])")
+            // rebuilt in place: still one app, same spec
+            _ = try Instance.make(spec, from: Bundle.main.bundleURL)
+            let same = { (u: URL) in u.resolvingSymlinksInPath().path.precomposedStringWithCanonicalMapping.trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
+            check("instance: a rebuild replaces it in place", Instance.all().map(same) == [same(app)] && fm.fileExists(atPath: icns.path),
+                  "\(Instance.all().map(same)) vs \(same(app))")
+            LSRegisterURL(app as CFURL, false)
+            try? fm.removeItem(at: app)
+        } catch {
+            check("instance: made", false, error.localizedDescription)
+        }
     }
 }

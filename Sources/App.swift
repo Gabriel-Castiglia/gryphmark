@@ -72,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let m = argument(after: "--mode") { prefs.mode = m }
             prefs.sidebar = true
         }
+        if Instance.isDedicated && prefs.persist { startDedicated() }
         prefs.applyAppearance()
         prefs.applyDockIcon()
         buildMenus()
@@ -95,6 +96,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let shot { screenshot(to: shot); return }
 
         let files = launchFiles
+        if Instance.isDedicated {
+            if files.isEmpty, let h = Instance.home, FileManager.default.fileExists(atPath: h) { open(URL(fileURLWithPath: h), from: nil) }
+            else if files.isEmpty { newWindow() }
+            else { files.forEach { open($0, from: nil) } }
+            offerRecovery()
+            return
+        }
+        Instance.refreshAll()
         if files.isEmpty {
             let d = newWindow()
             // Until a file of one's own has been opened, the app starts on the sample.
@@ -103,6 +112,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             files.forEach { open($0, from: nil) }
         }
         offerRecovery()
+    }
+
+    /// A dedicated instance: the folders and colour it was made with when it has none of its own, and
+    /// read-only and the view it must start with, whatever the last session left.
+    private func startDedicated() {
+        if prefs.folders.isEmpty { prefs.folders = Instance.folders }
+        if UserDefaults.standard.object(forKey: "Accent") == nil, let a = Instance.accent { prefs.accent = a }
+        if Instance.startReadOnly { prefs.readOnly = true }
+        if let m = Instance.startMode, ["visual", "source", "preview"].contains(m) { prefs.mode = m }
+        prefs.sidebar = true
+        prefs.sampleShown = true
+    }
+
+    /// Files panel → Open in a dedicated instance: the file or folder in its own Gryphmark, made the
+    /// first time (in ~/Applications, with this window's colour), brought forward afterwards.
+    func openDedicated(_ url: URL, from doc: DocWindow?) {
+        var isDir: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+        let name = Instance.name(for: url)
+        let made = Instance.bundleURL(name)
+        if Instance.spec(of: made) != nil { Instance.launch(made, files: isDir.boolValue ? [] : [url]); return }
+        guard let source = Instance.mainBundle else { doc?.flash(L("InstanceFail", "Gryphmark")); return }
+        let spec = Instance.Spec(name: name, accent: prefs.accent,
+                                 folders: [isDir.boolValue ? url.path : url.deletingLastPathComponent().path],
+                                 home: isDir.boolValue ? nil : url.path)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let app = try Instance.make(spec, from: source)
+                DispatchQueue.main.async { Instance.launch(app); doc?.flash(L("InstanceMade", app.deletingPathExtension().lastPathComponent)) }
+            } catch {
+                DispatchQueue.main.async { doc?.flash(L("InstanceFail", error.localizedDescription)) }
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
@@ -259,7 +301,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let go = {
                 Task { @MainActor in
                     if !path.isEmpty, fm.fileExists(atPath: path) { await doc.load(URL(fileURLWithPath: path)) }
-                    await doc.web.call("mdApp.load(t, b)", ["t": text, "b": doc.model.path == nil ? NSNull() : Schemes.docBase])
+                    await doc.web.call("mdApp.load(t, b)", ["t": text, "b": doc.model.path == nil ? NSNull() : Schemes.docBase(for: doc.model.path?.deletingLastPathComponent())])
                     doc.model.dirty = true
                     doc.updateTitle()
                     doc.flash(L("Recovered"))
