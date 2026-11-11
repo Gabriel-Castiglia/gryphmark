@@ -1,13 +1,16 @@
 #!/bin/sh
 # Gryphmark package: quits a running Gryphmark before it is replaced.
+# Only the copy in /Applications is quit: the dedicated instances in ~/Applications run the same executable
+# name but are separate apps, and the package does not replace them.
 # Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 # SPDX-License-Identifier: GPL-2.0-only
+exe='^/Applications/Gryphmark\.app/Contents/MacOS/Gryphmark( |$)'
 user=$(/usr/bin/stat -f %Su /dev/console)
-if /usr/bin/pgrep -xq Gryphmark && [ -n "$user" ] && [ "$user" != root ]; then
+if /usr/bin/pgrep -qf "$exe" && [ -n "$user" ] && [ "$user" != root ]; then
     uid=$(/usr/bin/id -u "$user")
     /bin/launchctl asuser "$uid" /usr/bin/sudo -u "$user" /usr/bin/osascript \
         -e 'tell application id "io.github.gabriel-castiglia.gryphmark" to quit' >/dev/null 2>&1
     sleep 2
 fi
-/usr/bin/pkill -x Gryphmark 2>/dev/null
+/usr/bin/pkill -f "$exe" 2>/dev/null
 exit 0

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-11-12
+
+- Installing an update quit every dedicated instance along with Gryphmark, because they run an executable of the
+  same name. The installer now quits only the Gryphmark in Applications; the dedicated instances stay open.
+
 ## 1.1.0 — 2026-11-11
 
 - **Dedicated instances**, as in the Windows version: a file or folder can open in its own Gryphmark, with its own
