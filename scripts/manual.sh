@@ -24,6 +24,12 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 command -v pandoc >/dev/null || { echo "pandoc is missing: brew install pandoc" >&2; exit 1; }
 [[ -x "$CHROME" ]] || { echo "Google Chrome is missing from /Applications" >&2; exit 1; }
 
+# The version on the cover is the one in the READMEs' byline: it must be the version being built
+# (it said 1.0.1 on the manuals of 1.1.0 to 1.2.0).
+VERSION="$(sed -n 's/^VERSION="\(.*\)"$/\1/p' scripts/compilar.sh)"
+grep -q "· version ${VERSION} ·" README.md && grep -q "· versión ${VERSION} ·" README.es.md || {
+  echo "The byline of README.md and README.es.md must say version ${VERSION} (scripts/compilar.sh)" >&2; exit 1; }
+
 TEMPORAL="$(mktemp -d)"
 trap 'rm -rf "$TEMPORAL"' EXIT
 

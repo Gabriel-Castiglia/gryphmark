@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 1.0.1 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 1.3.0 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
