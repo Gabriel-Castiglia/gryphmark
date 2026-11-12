@@ -20,6 +20,9 @@ final class Prefs: ObservableObject {
     @Published var readOnly = false { didSet { save() } }
     @Published var zoom = 1.0 { didSet { save() } }
     @Published var sidebar = true { didSet { save() } }
+    // Width of the sidebar and the share of its height that Contents takes (the rest is Files); set when a divider is let go.
+    @Published var sidebarWidth = 260.0 { didSet { save() } }
+    @Published var outlineShare = 0.45 { didSet { save() } }
     @Published var recent: [String] = [] { didSet { save() } }
     @Published var folders: [String] = [] { didSet { save() } }
     @Published var sampleShown = false { didSet { save() } }
@@ -41,6 +44,8 @@ final class Prefs: ObservableObject {
         readOnly = d.bool(forKey: "ReadOnly")
         zoom = max(0.5, min(3, d.object(forKey: "Zoom") as? Double ?? 1))
         sidebar = d.object(forKey: "Sidebar") as? Bool ?? true
+        sidebarWidth = Prefs.clampWidth(d.object(forKey: "SidebarWidth") as? Double ?? 260)
+        outlineShare = Prefs.clampShare(d.object(forKey: "OutlineShare") as? Double ?? 0.45)
         recent = d.stringArray(forKey: "Recent") ?? []
         folders = d.stringArray(forKey: "Folders") ?? []
         sampleShown = d.bool(forKey: "SampleShown")
@@ -50,10 +55,14 @@ final class Prefs: ObservableObject {
         guard persist, !loading else { return }
         let values: [String: Any] = [
             "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "ReadOnly": readOnly,
-            "Zoom": zoom, "Sidebar": sidebar, "Recent": recent, "Folders": folders, "SampleShown": sampleShown,
+            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "Recent": recent, "Folders": folders, "SampleShown": sampleShown,
         ]
         for (k, v) in values { d.set(v, forKey: k) }
     }
+
+    static let sidebarRange = 180.0...700.0
+    static func clampWidth(_ w: Double) -> Double { min(max(w, sidebarRange.lowerBound), sidebarRange.upperBound) }
+    static func clampShare(_ s: Double) -> Double { min(max(s, 0.1), 0.9) }
 
     /// The first time, Spanish if the Mac speaks it, English otherwise.
     static var macLanguage: String {

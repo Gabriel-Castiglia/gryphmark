@@ -125,6 +125,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         prefs.sampleShown = true
     }
 
+    /// "Convert to TXT" (right click on a Markdown file in the Files panel): writes the file as it reads in the
+    /// GitHub view, as plain UTF-8 text, next to it as name.txt; the Markdown file is not touched, and an existing
+    /// .txt is never overwritten (name (2).txt, name (3).txt...).
+    func convertToText(_ url: URL, from doc: DocWindow) {
+        Task { @MainActor in
+            guard let data = try? Data(contentsOf: url) else { doc.flash(L("ItemGone")); return }
+            let source = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
+            guard let text = await doc.web.call("return mdApp.plainText(t)", ["t": source]) as? String else {
+                doc.flash(String(format: L("TxtFailed"), url.lastPathComponent)); return
+            }
+            let target = AppDelegate.textTarget(for: url)
+            do {
+                try Data(text.utf8).write(to: target, options: .withoutOverwriting)
+                doc.flash(String(format: L("TxtDone"), target.lastPathComponent))
+            } catch {
+                doc.flash(String(format: L("TxtFailed"), error.localizedDescription))
+            }
+        }
+    }
+
+    static func textTarget(for url: URL) -> URL {
+        let dir = url.deletingLastPathComponent(), base = url.deletingPathExtension().lastPathComponent
+        var target = dir.appendingPathComponent(base + ".txt"), n = 2
+        while FileManager.default.fileExists(atPath: target.path) { target = dir.appendingPathComponent("\(base) (\(n)).txt"); n += 1 }
+        return target
+    }
+
     /// Files panel → Open in a dedicated instance: the file or folder in its own Gryphmark, made the
     /// first time (in ~/Applications, with this window's colour), brought forward afterwards.
     func openDedicated(_ url: URL, from doc: DocWindow?) {
@@ -503,6 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         d.window?.setContentSize(size?.count == 2 ? NSSize(width: size![0], height: size![1]) : NSSize(width: 1180, height: 760))
         d.window?.center()
         let file = argument(after: "--open").map { URL(fileURLWithPath: $0) }
+        if let folder = argument(after: "--folder") { prefs.folders = [folder]; prefs.sidebar = true }   // the Files panel
         d.onReady = { [weak self] in
             if let file { d.open(file) } else { self?.openSample(in: d) }
             var target: NSWindow? = d.window

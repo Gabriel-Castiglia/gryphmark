@@ -18,9 +18,13 @@ RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 [[ "${FIRMA:-}" == adhoc ]] || source scripts/firma.sh
 
-VERSION="1.1.2"
+VERSION="1.2.0"
 COMPILACION="1"
 APP="build/Gryphmark.app"
+
+# 0. @State needs SwiftUI's macro plugin, which only comes with Xcode: with the Command Line Tools it fails as
+#    "SwiftUIMacros.StateMacro could not be found". Use @StateObject of an ObservableObject instead.
+if grep -nE '^[^/]*@State([^O]|$)' Sources/*.swift; then echo "@State does not build without Xcode: use @StateObject (see DragState)" >&2; exit 1; fi
 
 # 0. Every text the code asks for must exist in Sources/Strings.swift.
 faltan=$(grep -ohE '\bL\("[A-Za-z]+"' Sources/*.swift | sed -E 's/L\("([A-Za-z]+)"/\1/' | sort -u | while read k; do

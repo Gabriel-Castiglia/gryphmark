@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — 2026-11-12
+
+- **The open file stands out in the Files panel**: a filled band in the window's colour (it was only bold), and the
+  folders down to it open, as on Windows.
+- **Panels of any size**: drag the divider beside the sidebar (180 to 700 points; it was 240 to 420) and the new divider
+  between Files and Contents. Each window, and each dedicated instance, keeps the sizes.
+- **Convert to TXT**: right-click a file in the Files panel. A .txt is written next to it as the document reads in the
+  GitHub view: headings underlined, lists with bullets or numbers, tables in columns, links with their address. The
+  Markdown file is not changed, and an existing .txt is never overwritten (`name (2).txt`).
+- The Files panel has *Collapse all* (a button and the right-click menu) and *Refresh* in its right-click menus.
+
 ## 1.1.2 — 2026-11-12
 
 - A Markdown file with an HTML table whose `<tbody>` is empty (pandoc writes one for every one-row table of a Word

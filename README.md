@@ -62,7 +62,10 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
   indent, quote, code block, table, link, picture and horizontal rule.
 - GitHub alerts, Mermaid diagrams, math (KaTeX), footnotes and emoji in the GitHub view.
 - The sidebar (⇧⌘E): the Markdown files of one or more folders (File → Open folder…) and the contents of the
-  open document; click a heading to go to it.
+  open document; click a heading to go to it. The open file is highlighted and its folders open. Drag the
+  dividers to change the width of the sidebar and the room of Files and Contents; each window keeps them.
+- Convert to TXT: right-click a file in the Files panel. A .txt is written next to it, as the document reads in the
+  GitHub view (headings, lists, tables and links in plain text); the Markdown file is not changed.
 - Find and replace (⌘F, ⌥⌘F, ⌘G), zoom (⌘+, ⌘−, ⌘0), spell check, export to a self-contained HTML page (⌘E),
   print or save as PDF (⌘P).
 - Saving keeps your formatting: blocks you did not touch keep their original Markdown, and the file keeps its

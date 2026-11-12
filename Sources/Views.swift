@@ -31,29 +31,80 @@ struct RootView: View {
     let doc: DocWindow
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
+    @StateObject private var drag = DragState()     // the sidebar divider while it is dragged
 
     var body: some View {
         VStack(spacing: 0) {
             ToolbarView(doc: doc, prefs: prefs)
             Divider()
-            HSplitView {
-                if prefs.sidebar {
-                    Sidebar(doc: doc, model: model, prefs: prefs).frame(minWidth: 240, idealWidth: 240, maxWidth: 420, maxHeight: .infinity)
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    if prefs.sidebar {
+                        // The sidebar keeps its width (dragged, and remembered by each instance); the document never
+                        // gets narrower than 380, so a narrow window takes the room from the sidebar.
+                        let width = min(drag.live ?? prefs.sidebarWidth, max(Prefs.sidebarRange.lowerBound, geo.size.width - 380 - SplitHandle.thickness))
+                        Sidebar(doc: doc, model: model, prefs: prefs).frame(width: width).frame(maxHeight: .infinity)
+                        SplitHandle(vertical: true) { moved in
+                            if drag.from == nil { drag.from = width }
+                            drag.live = Prefs.clampWidth(drag.from! + moved)
+                        } ended: {
+                            if let w = drag.live { prefs.sidebarWidth = w }
+                            drag.live = nil; drag.from = nil
+                        }
+                    }
+                    VStack(spacing: 0) {
+                        if model.findVisible { FindBar(doc: doc, model: model); Divider() }
+                        WebHost(web: doc.web.view).frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
+                        Divider()
+                        StatusLine(model: model, prefs: prefs)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                VStack(spacing: 0) {
-                    if model.findVisible { FindBar(doc: doc, model: model); Divider() }
-                    WebHost(web: doc.web.view).frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
-                    Divider()
-                    StatusLine(model: model, prefs: prefs)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutPriority(1)          // the document takes the room a wider window adds, not the sidebar
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(prefs.highlight)
         .id(prefs.lang)
+    }
+}
+
+// MARK: dividers
+
+/// What a divider keeps while it is dragged. A class and not @State: @State needs a macro plugin that only comes
+/// with Xcode, and this app is built with the Command Line Tools (compilar.sh stops on @State).
+final class DragState: ObservableObject {
+    @Published var live: Double?       // the size shown while dragging, saved when the divider is let go
+    @Published var from: Double?       // the size when the drag began
+    @Published var hovering = false
+}
+
+/// A divider that is dragged to resize the panes on both sides of it: a 1-point line in a wider strip that takes
+/// the mouse. `moved` gets the distance from where the drag began (in the window, so the moving divider does not
+/// change it); `ended` is where the new size is saved.
+struct SplitHandle: View {
+    static let thickness: CGFloat = 5
+    let vertical: Bool                    // true: a vertical line, dragged left and right
+    let moved: (Double) -> Void
+    let ended: () -> Void
+    @StateObject private var hover = DragState()    // hover.hovering: the resize cursor is pushed
+
+    var body: some View {
+        ZStack {
+            Color.clear
+            Rectangle().fill(Color(nsColor: .separatorColor))
+                .frame(width: vertical ? 1 : nil, height: vertical ? nil : 1)
+        }
+        .frame(width: vertical ? Self.thickness : nil, height: vertical ? nil : Self.thickness)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside, !hover.hovering { (vertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() }
+            if !inside, hover.hovering { NSCursor.pop() }
+            hover.hovering = inside
+        }
+        .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { moved(Double(vertical ? $0.translation.width : $0.translation.height)) }
+            .onEnded { _ in ended() })
+        .accessibilityIdentifier(vertical ? "sidebarDivider" : "outlineDivider")
     }
 }
 
@@ -188,20 +239,71 @@ struct FileNode: Identifiable, Hashable {
     }
 }
 
-final class TreeRefresh: ObservableObject { @Published var tick = 0 }
+/// The Files tree: which folders are open, and a counter that Refresh bumps to read the disk again.
+/// A class and not @State (see DragState).
+final class TreeState: ObservableObject {
+    @Published var open: Set<String> = []
+    @Published var tick = 0
+    private var revealed: String?     // the file last revealed: a folder closed by hand afterwards stays closed
+
+    /// Opens every folder from the panel folder that holds the file down to it, once per file. Paths are compared
+    /// with symbolic links resolved (/tmp and /private/tmp are the same folder), and the folders are named as the
+    /// tree names them: the panel folder as it was added, plus the names below it.
+    func reveal(_ file: URL?, roots: [String]) {
+        guard let file else { return }
+        let path = TreeState.canonical(file.path)
+        guard path != revealed else { return }
+        revealed = path
+        let match = roots.map { r -> (String, String) in
+            let root = r.count > 1 && r.hasSuffix("/") ? String(r.dropLast()) : r
+            return (root, TreeState.canonical(root))
+        }.filter { path.hasPrefix($0.1 + "/") }.max { $0.1.count < $1.1.count }
+        guard let (root, canon) = match else { return }
+        var dir = root
+        for part in path.dropFirst(canon.count + 1).split(separator: "/").dropLast() {
+            dir += "/" + part
+            open.insert(dir)
+        }
+    }
+
+    static func canonical(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
+}
 
 struct Sidebar: View {
     let doc: DocWindow
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
-    @StateObject private var refresh = TreeRefresh()
+    @StateObject private var tree = TreeState()
+    @StateObject private var drag = DragState()     // the divider between Files and Contents while it is dragged
 
     var body: some View {
+        // Files above, Contents below; the divider between them is dragged, and each instance keeps the share.
+        GeometryReader { geo in
+            let usable = max(1, Double(geo.size.height - SplitHandle.thickness))
+            let share = drag.live ?? prefs.outlineShare
+            let outlineHeight = (usable * share).rounded()
+            VStack(spacing: 0) {
+                files.frame(height: usable - outlineHeight, alignment: .top).clipped()
+                SplitHandle(vertical: false) { moved in
+                    if drag.from == nil { drag.from = share }
+                    drag.live = Prefs.clampShare(drag.from! - moved / usable)
+                } ended: {
+                    if let v = drag.live { prefs.outlineShare = v }
+                    drag.live = nil; drag.from = nil
+                }
+                outline.frame(height: outlineHeight, alignment: .top).clipped()
+            }
+        }
+    }
+
+    private var files: some View {
         VStack(spacing: 0) {
             HStack {
                 Text(L("FilesTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 Spacer()
-                Button { refresh.tick += 1 } label: { Image(systemName: "arrow.clockwise") }
+                Button { tree.open = [] } label: { Image(systemName: "chevron.up.chevron.down") }
+                    .buttonStyle(.borderless).help(L("CollapseAll"))
+                Button { tree.tick += 1 } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.borderless).help(L("Refresh"))
                 Button { (NSApp.delegate as? AppDelegate)?.pickFolder() } label: { Image(systemName: "folder.badge.plus") }
                     .buttonStyle(.borderless).help(L("FolderAdd"))
@@ -215,28 +317,49 @@ struct Sidebar: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                List {
-                    ForEach(prefs.folders, id: \.self) { f in
-                        let root = FileNode(url: URL(fileURLWithPath: f), isFolder: true)
-                        Section {
-                            OutlineGroup(root.children ?? [], children: \.children) { node in
-                                FileRow(doc: doc, node: node, current: model.path)
-                            }
-                        } header: {
-                            Text(root.url.lastPathComponent).foregroundStyle(prefs.highlight)
-                                .contextMenu {
-                                    Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([root.url]) }
-                                    Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(root.url, from: doc) }
-                                    Button(L("FolderCloseOne")) { prefs.folders.removeAll { $0 == f } }
-                                    Button(L("FolderCloseAll")) { prefs.folders = [] }
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(prefs.folders, id: \.self) { f in
+                            let root = FileNode(url: URL(fileURLWithPath: f), isFolder: true)
+                            Section {
+                                ForEach(root.children ?? []) { node in
+                                    FileTreeNode(doc: doc, node: node, current: model.path, highlight: prefs.highlight, tree: tree)
                                 }
+                            } header: {
+                                Text(root.url.lastPathComponent).foregroundStyle(prefs.highlight)
+                                    .contextMenu {
+                                        Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([root.url]) }
+                                        Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(root.url, from: doc) }
+                                        Divider()
+                                        Button(L("CollapseAll")) { tree.open = [] }
+                                        Button(L("Refresh")) { tree.tick += 1 }
+                                        Divider()
+                                        Button(L("FolderCloseOne")) { prefs.folders.removeAll { $0 == f } }
+                                        Button(L("FolderCloseAll")) { prefs.folders = [] }
+                                    }
+                            }
                         }
                     }
+                    .listStyle(.sidebar)
+                    .id(tree.tick)
+                    // The open file is shown: its folders open and the list scrolls to it (as on Windows).
+                    .onAppear { show(model.path, proxy) }
+                    .onChange(of: model.path) { _, path in show(path, proxy) }
+                    .onChange(of: prefs.folders) { _, _ in show(model.path, proxy) }
                 }
-                .listStyle(.sidebar)
-                .id(refresh.tick)
             }
-            Divider()
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func show(_ path: URL?, _ proxy: ScrollViewProxy) {
+        tree.reveal(path, roots: prefs.folders)
+        guard let id = path.map({ TreeState.canonical($0.path) }) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { proxy.scrollTo(id, anchor: .center) }
+    }
+
+    private var outline: some View {
+        VStack(spacing: 0) {
             Text(L("OutlineTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 6)
             if model.outline.isEmpty {
@@ -255,10 +378,32 @@ struct Sidebar: View {
                     }
                 }
                 .listStyle(.sidebar)
-                .frame(minHeight: 120, maxHeight: .infinity)
+                .frame(maxHeight: .infinity)
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// A file, or a folder that opens and closes; the folders that are open are kept in TreeState.
+struct FileTreeNode: View {
+    let doc: DocWindow
+    let node: FileNode
+    let current: URL?
+    let highlight: Color
+    @ObservedObject var tree: TreeState
+
+    var body: some View {
+        if node.isFolder {
+            DisclosureGroup(isExpanded: Binding(get: { tree.open.contains(node.id) },
+                                                set: { if $0 { tree.open.insert(node.id) } else { tree.open.remove(node.id) } })) {
+                ForEach(node.children ?? []) { FileTreeNode(doc: doc, node: $0, current: current, highlight: highlight, tree: tree) }
+            } label: {
+                FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree)
+            }
+        } else {
+            FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree).id(TreeState.canonical(node.url.path))
+        }
     }
 }
 
@@ -266,11 +411,18 @@ struct FileRow: View {
     let doc: DocWindow
     let node: FileNode
     let current: URL?
+    let highlight: Color
+    @ObservedObject var tree: TreeState
 
     var body: some View {
-        let isCurrent = node.url.standardizedFileURL == current?.standardizedFileURL
+        // The open file stands out as a selected row does: a filled band in the highlight colour.
+        let isCurrent = !node.isFolder && current.map { TreeState.canonical($0.path) == TreeState.canonical(node.url.path) } == true
         Label(node.url.lastPathComponent, systemImage: node.isFolder ? "folder" : "doc.text")
             .fontWeight(isCurrent ? .semibold : .regular)
+            .padding(.vertical, 2).padding(.horizontal, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 5).fill(isCurrent ? highlight.opacity(0.3) : .clear))
+            .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .contentShape(Rectangle())
             .onTapGesture { if !node.isFolder { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) } }
             .contextMenu {
@@ -284,6 +436,13 @@ struct FileRow: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(node.url.path, forType: .string)
                 }
+                if !node.isFolder {
+                    Divider()
+                    Button(L("ConvertTxt")) { (NSApp.delegate as? AppDelegate)?.convertToText(node.url, from: doc) }
+                }
+                Divider()
+                Button(L("CollapseAll")) { tree.open = [] }
+                Button(L("Refresh")) { tree.tick += 1 }
             }
     }
 }

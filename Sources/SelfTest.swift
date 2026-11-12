@@ -99,6 +99,49 @@ enum SelfTest {
             try? await Task.sleep(nanoseconds: 400_000_000)
             let wide = d.web.view.convert(d.web.view.bounds, to: nil)
             check("window: a wider window widens the document, not the sidebar", wide.minX < 300, "page \(wide)")
+            // The sidebar and the split between Files and Contents follow their dividers when dragged, and keep the
+            // sizes (1.1.2 and earlier: a sidebar of 240 to 420 forgotten on every start, and no divider between the two).
+            let p = Prefs.shared
+            p.sidebarWidth = 260; p.outlineShare = 0.45
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            func drag(_ from: NSPoint, _ dx: CGFloat, _ dy: CGFloat) async {
+                func send(_ type: NSEvent.EventType, _ at: NSPoint) {
+                    if let e = NSEvent.mouseEvent(with: type, location: at, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                  windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                                                  pressure: type == .leftMouseUp ? 0 : 1) { w.sendEvent(e) }
+                }
+                send(.leftMouseDown, from)
+                for i in 1...6 {
+                    send(.leftMouseDragged, NSPoint(x: from.x + dx * CGFloat(i) / 6, y: from.y + dy * CGFloat(i) / 6))
+                    try? await Task.sleep(nanoseconds: 30_000_000)
+                }
+                send(.leftMouseUp, NSPoint(x: from.x + dx, y: from.y + dy))
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+            // An inactive window takes the first click to come forward and the drag never starts: activate it first.
+            NSApp.activate(ignoringOtherApps: true); w.makeKeyAndOrderFront(nil)
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            let before = d.web.view.convert(d.web.view.bounds, to: nil)
+            await drag(NSPoint(x: before.minX - SplitHandle.thickness / 2, y: before.midY), 120, 0)
+            let after = d.web.view.convert(d.web.view.bounds, to: nil)
+            check("sidebar: its divider is dragged wider and the width is kept",
+                  abs(after.minX - before.minX - 120) < 4 && abs(p.sidebarWidth - 380) < 4,
+                  "page from \(before.minX) to \(after.minX), saved \(p.sidebarWidth)")
+            // Files above, Contents below: the sidebar runs from the bottom of the window to the top of the page.
+            let usable = Double(after.maxY - SplitHandle.thickness)
+            let handleY = CGFloat((usable * 0.45).rounded()) + SplitHandle.thickness / 2
+            await drag(NSPoint(x: after.minX / 2, y: handleY), 0, CGFloat(usable * 0.2))
+            check("sidebar: the divider between Files and Contents is dragged and the split is kept",
+                  abs(p.outlineShare - 0.65) < 0.03, "share \(p.outlineShare), usable \(usable)")
+            p.sidebarWidth = 700
+            w.setContentSize(NSSize(width: 800, height: 600))
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let squeezed = d.web.view.convert(d.web.view.bounds, to: nil)
+            check("sidebar: a wide sidebar in a narrow window leaves the document its 380",
+                  squeezed.width >= 379 && squeezed.maxX <= 801, "page \(squeezed)")
+            p.sidebarWidth = 260; p.outlineShare = 0.45
+            w.setContentSize(NSSize(width: 1180, height: 700))
+            try? await Task.sleep(nanoseconds: 300_000_000)
             let minFrame = w.frameRect(forContentRect: NSRect(origin: .zero, size: DocWindow.minContent)).size
             let saved = AppDelegate.fitted(NSRect(x: 145, y: 177, width: 432, height: 732), min: minFrame,
                                            on: NSRect(x: 0, y: 0, width: 1470, height: 890))
@@ -166,6 +209,33 @@ enum SelfTest {
             }
         }
         check("tables: an empty <tbody> opens in every view and saves unchanged", blank.isEmpty, "failed in \(blank)")
+
+        // Files panel: opening a file opens its folders, compared with links resolved (/var is /private/var).
+        let treeRoot = tmp.appendingPathComponent("tree")
+        try? FileManager.default.createDirectory(at: treeRoot.appendingPathComponent("a/b"), withIntermediateDirectories: true)
+        let deep = treeRoot.appendingPathComponent("a/b/c.md")
+        try? Data("# C\n".utf8).write(to: deep)
+        let state = TreeState()
+        let other = deep.path.hasPrefix("/private/") ? String(deep.path.dropFirst(8)) : "/private" + deep.path
+        let viaTmp = URL(fileURLWithPath: other)          // the same file under its other name
+        state.reveal(viaTmp, roots: [treeRoot.path + "/"])
+        check("files: the open file's folders open, named as the tree names them",
+              state.open == [treeRoot.path + "/a", treeRoot.path + "/a/b"], "\(state.open.sorted())")
+
+        // Convert to TXT: a .txt next to the file, the Markdown untouched, an existing .txt never overwritten.
+        let mdFile = tmp.appendingPathComponent("conv.md")
+        let mdText = "# Title\n\n- one\n- **two**\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"
+        try? Data(mdText.utf8).write(to: mdFile)
+        let txt1 = tmp.appendingPathComponent("conv.txt"), txt2 = tmp.appendingPathComponent("conv (2).txt")
+        (NSApp.delegate as? AppDelegate)?.convertToText(mdFile, from: d)
+        _ = await wait(5) { FileManager.default.fileExists(atPath: txt1.path) }
+        (NSApp.delegate as? AppDelegate)?.convertToText(mdFile, from: d)
+        _ = await wait(5) { FileManager.default.fileExists(atPath: txt2.path) }
+        let plain = (try? String(contentsOf: txt1, encoding: .utf8)) ?? ""
+        let expected = "Title\n=====\n\n• one\n• two\n\na  b\n-  -\n1  2\n"
+        check("txt: converted next to the file, a second time as (2), the Markdown untouched",
+              plain == expected && FileManager.default.fileExists(atPath: txt2.path)
+                  && (try? String(contentsOf: mdFile, encoding: .utf8)) == mdText, plain.debugDescription)
         d.setMode("visual")
 
         // A hostile document.
