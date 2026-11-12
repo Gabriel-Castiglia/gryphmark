@@ -307,6 +307,7 @@ struct Sidebar: View {
                     .buttonStyle(.borderless).help(L("Refresh"))
                 Button { (NSApp.delegate as? AppDelegate)?.pickFolder() } label: { Image(systemName: "folder.badge.plus") }
                     .buttonStyle(.borderless).help(L("FolderAdd"))
+                FolderOptionsMenu(prefs: prefs, tree: tree)
             }
             .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 4)
             if prefs.folders.isEmpty {
@@ -319,24 +320,14 @@ struct Sidebar: View {
             } else {
                 ScrollViewReader { proxy in
                     List {
-                        ForEach(prefs.folders, id: \.self) { f in
+                        ForEach(prefs.orderedFolders, id: \.self) { f in
                             let root = FileNode(url: URL(fileURLWithPath: f), isFolder: true)
                             Section {
                                 ForEach(root.children ?? []) { node in
                                     FileTreeNode(doc: doc, node: node, current: model.path, highlight: prefs.highlight, tree: tree)
                                 }
                             } header: {
-                                Text(root.url.lastPathComponent).foregroundStyle(prefs.highlight)
-                                    .contextMenu {
-                                        Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([root.url]) }
-                                        Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(root.url, from: doc) }
-                                        Divider()
-                                        Button(L("CollapseAll")) { tree.open = [] }
-                                        Button(L("Refresh")) { tree.tick += 1 }
-                                        Divider()
-                                        Button(L("FolderCloseOne")) { prefs.folders.removeAll { $0 == f } }
-                                        Button(L("FolderCloseAll")) { prefs.folders = [] }
-                                    }
+                                FolderHeader(doc: doc, dir: f, prefs: prefs, tree: tree)
                             }
                         }
                     }
@@ -382,6 +373,110 @@ struct Sidebar: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// A menu entry with a check mark when `on`.
+func checkItem(_ title: String, _ on: Bool, image: NSImage? = nil, _ run: @escaping () -> Void) -> some View {
+    Toggle(isOn: Binding(get: { on }, set: { _ in run() })) {
+        if let image { Label { Text(title) } icon: { Image(nsImage: image) } } else { Text(title) }
+    }
+}
+
+/// A small square of a folder colour for the Colour menu (not a template image, so the menu keeps its colour).
+func swatch(_ hue: Double, dark: Bool) -> NSImage {
+    let img = NSImage(size: NSSize(width: 14, height: 14), flipped: false) { r in
+        NSColor(Prefs.color(hue, 0.6, dark ? 0.45 : 0.75)).setFill()
+        NSBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), xRadius: 3.5, yRadius: 3.5).fill()
+        return true
+    }
+    img.isTemplate = false
+    return img
+}
+
+/// The heading of an open folder in the Files panel: its colour, a pin when it is pinned, and its right-click
+/// menu (pin, close, colour, move, dedicated instance, Finder, path, collapse, refresh), as on Windows.
+struct FolderHeader: View {
+    let doc: DocWindow
+    let dir: String
+    @ObservedObject var prefs: Prefs
+    @ObservedObject var tree: TreeState
+
+    var body: some View {
+        let url = URL(fileURLWithPath: dir)
+        let tint = prefs.folderTint(dir)
+        let exists = FileManager.default.fileExists(atPath: dir)
+        let manual = prefs.folderSort == "opened"
+        let i = prefs.folders.firstIndex(of: dir) ?? -1
+        HStack(spacing: 6) {
+            Image(systemName: "folder.fill").font(.system(size: 11)).foregroundStyle(tint?.edge ?? Color.secondary)
+            Text(url.lastPathComponent).lineLimit(1).truncationMode(.middle)
+                .foregroundStyle(exists && tint != nil ? Color.primary : Color.secondary)
+            if !exists { Text(L("FolderUnavailable")).font(.system(size: 10)).foregroundStyle(.secondary) }
+            Spacer(minLength: 4)
+            if prefs.isPinned(dir) {
+                Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.secondary).help(L("FolderPinnedTip"))
+            }
+        }
+        .padding(.horizontal, 6).padding(.vertical, 3)
+        .background(RoundedRectangle(cornerRadius: 5).fill(tint?.fill ?? Color.clear))
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(L(prefs.isPinned(dir) ? "FolderUnpin" : "FolderPin")) { prefs.togglePin(dir) }
+            Button(L("FolderCloseOne")) { prefs.closeFolder(dir) }
+            Menu(L("FolderColor")) {
+                checkItem(L("FolderColorAuto"), prefs.folderColorMap[dir] == nil) { prefs.folderColorMap[dir] = nil }
+                Divider()
+                ForEach(Prefs.folderHues, id: \.hue) { c in
+                    checkItem(prefs.lang == "es" ? c.es : c.en, prefs.folderColorMap[dir] == c.hue, image: swatch(c.hue, dark: prefs.dark)) {
+                        prefs.folderColorMap[dir] = c.hue
+                    }
+                }
+            }
+            .disabled(prefs.folderColors == "none")
+            Button(L("FolderUp")) { prefs.moveFolder(dir, by: -1) }.disabled(!manual || i <= 0)
+            Button(L("FolderDown")) { prefs.moveFolder(dir, by: 1) }.disabled(!manual || i < 0 || i >= prefs.folders.count - 1)
+            Divider()
+            Button(L("OpenDedicated")) { (NSApp.delegate as? AppDelegate)?.openDedicated(url, from: doc) }.disabled(!exists)
+            Button(L("OpenFolder")) { NSWorkspace.shared.activateFileViewerSelecting([url]) }.disabled(!exists)
+            Button(L("CopyPath")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(dir, forType: .string) }
+            Divider()
+            Button(L("CollapseAll")) { tree.open = [] }
+            Button(L("Refresh")) { tree.tick += 1 }
+            Divider()
+            Button(L("FolderCloseAll")) { prefs.folders = [] }
+        }
+    }
+}
+
+/// The ⋯ button of the Files panel: order of the folders, their colours, what opens at start, and folder-wide actions.
+struct FolderOptionsMenu: View {
+    @ObservedObject var prefs: Prefs
+    @ObservedObject var tree: TreeState
+
+    var body: some View {
+        Menu {
+            Section(L("FolderSortTitle")) {
+                ForEach([("opened", "FolderSortOpened"), ("az", "FolderSortAz"), ("za", "FolderSortZa"), ("modified", "FolderSortModified")], id: \.0) { k, t in
+                    checkItem(L(t), prefs.folderSort == k) { prefs.folderSort = k }
+                }
+            }
+            Section(L("FolderColorsTitle")) {
+                ForEach([("theme", "FolderColorsTheme"), ("multi", "FolderColorsMulti"), ("none", "FolderColorsNone")], id: \.0) { k, t in
+                    checkItem(L(t), prefs.folderColors == k) { prefs.folderColors = k }
+                }
+            }
+            Section(L("StartupTitle")) {
+                ForEach([("restore", "StartupRestore"), ("clean", "StartupClean"), ("pinned", "StartupPinned")], id: \.0) { k, t in
+                    checkItem(L(t), prefs.startupFolders == k) { prefs.startupFolders = k }
+                }
+            }
+            Divider()
+            Button(L("FolderAdd")) { (NSApp.delegate as? AppDelegate)?.pickFolder() }
+            Button(L("CollapseAll")) { tree.open = [] }
+            Button(L("FolderCloseAll")) { prefs.folders = [] }.disabled(prefs.folders.isEmpty)
+        } label: { Image(systemName: "ellipsis.circle") }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(L("FolderOptions"))
     }
 }
 

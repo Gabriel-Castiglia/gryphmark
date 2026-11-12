@@ -64,6 +64,10 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - The sidebar (⇧⌘E): the Markdown files of one or more folders (File → Open folder…) and the contents of the
   open document; click a heading to go to it. The open file is highlighted and its folders open. Drag the
   dividers to change the width of the sidebar and the room of Files and Contents; each window keeps them.
+- The folders of the Files panel: each one has its own colour (tones of the theme colour, multicolour or none, or one
+  chosen by hand), and can be pinned to the top, moved up and down or closed (right-click its name). The ⋯ button
+  orders them (order opened, by name or recently modified first) and sets what opens at start: the folders of the
+  last session, none, or only the pinned ones (also File → Folders at start).
 - Convert to TXT: right-click a file in the Files panel. A .txt is written next to it, as the document reads in the
   GitHub view (headings, lists, tables and links in plain text); the Markdown file is not changed.
 - Find and replace (⌘F, ⌥⌘F, ⌘G), zoom (⌘+, ⌘−, ⌘0), spell check, export to a self-contained HTML page (⌘E),

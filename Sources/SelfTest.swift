@@ -222,6 +222,35 @@ enum SelfTest {
         check("files: the open file's folders open, named as the tree names them",
               state.open == [treeRoot.path + "/a", treeRoot.path + "/a/b"], "\(state.open.sorted())")
 
+        // Folders of the panel: order, pinned ones first, moving, closing, start-up choices and colours (as on Windows).
+        let p = Prefs.shared
+        let saved = (p.folders, p.pinned, p.folderSort, p.startupFolders, p.folderColors, p.folderColorMap)
+        let fa = tmp.appendingPathComponent("f-beta").path, fb = tmp.appendingPathComponent("f-alfa").path, fc = tmp.appendingPathComponent("f-gamma").path
+        p.folders = [fa, fb, fc]; p.pinned = [fc]; p.folderSort = "opened"; p.folderColorMap = [:]
+        let opened = p.orderedFolders
+        p.folderSort = "az"; let az = p.orderedFolders
+        p.folderSort = "za"; let za = p.orderedFolders
+        check("folders: pinned first, then the chosen order", opened == [fc, fa, fb] && az == [fc, fb, fa] && za == [fc, fa, fb],
+              "opened \(opened.map { ($0 as NSString).lastPathComponent }), az \(az.map { ($0 as NSString).lastPathComponent })")
+        p.moveFolder(fa, by: 1)
+        let moved = p.folders, sortAfterMove = p.folderSort
+        p.folderColorMap[fc] = 120
+        p.closeFolder(fc)
+        check("folders: moving swaps with the neighbour and returns to order opened; closing unpins and forgets the colour",
+              moved == [fb, fa, fc] && sortAfterMove == "opened" && p.folders == [fb, fa] && p.pinned.isEmpty && p.folderColorMap.isEmpty,
+              "moved \(moved), folders \(p.folders), pinned \(p.pinned)")
+        p.folders = [fa, fb]; p.pinned = [fc]
+        p.startupFolders = "restore"; p.applyStartupFolders(); let restore = p.folders
+        p.startupFolders = "pinned"; p.applyStartupFolders(); let onlyPinned = p.folders
+        p.startupFolders = "clean"; p.applyStartupFolders(); let clean = p.folders
+        check("folders: at start, the last session plus the pinned, only the pinned, or none",
+              restore == [fa, fb, fc] && onlyPinned == [fc] && clean.isEmpty && p.pinned == [fc], "\(restore) \(onlyPinned) \(clean)")
+        p.folders = [fa, fb]
+        p.folderColors = "theme"; let themeTint = p.folderTint(fa) != nil && p.folderTint(fb) != nil
+        p.folderColors = "none"; let noneTint = p.folderTint(fa) == nil
+        check("folders: coloured in the theme tones, none when colours are off", themeTint && noneTint)
+        (p.folders, p.pinned, p.folderSort, p.startupFolders, p.folderColors, p.folderColorMap) = saved
+
         // Convert to TXT: a .txt next to the file, the Markdown untouched, an existing .txt never overwritten.
         let mdFile = tmp.appendingPathComponent("conv.md")
         let mdText = "# Title\n\n- one\n- **two**\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"

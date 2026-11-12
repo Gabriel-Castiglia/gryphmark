@@ -65,6 +65,10 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - La barra lateral (⇧⌘E): los archivos Markdown de una o más carpetas (Archivo → Abrir carpeta…) y el índice del
   documento abierto; clic en un título para ir a él. El archivo abierto se resalta y sus carpetas se abren. Los
   divisores se arrastran para cambiar el ancho de la barra y el lugar de Archivos y Contenido; cada ventana los recuerda.
+- Las carpetas del panel de archivos: cada una tiene su color (tonos del color del tema, multicolor o ninguno, o uno
+  elegido a mano) y se puede fijar arriba, subir, bajar o cerrar (clic derecho en su nombre). El botón ⋯ las ordena
+  (orden de apertura, por nombre o modificadas recientemente primero) y define qué se abre al iniciar: las carpetas de
+  la última sesión, ninguna o solo las fijadas (también Archivo → Carpetas al iniciar).
 - Convertir a TXT: clic derecho en un archivo del panel de archivos. Se escribe un .txt al lado, como se lee el
   documento en la vista GitHub (títulos, listas, tablas y enlaces en texto plano); el archivo Markdown no cambia.
 - Buscar y reemplazar (⌘F, ⌥⌘F, ⌘G), zoom (⌘+, ⌘−, ⌘0), corrector ortográfico, exportar a una página HTML

@@ -72,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let m = argument(after: "--mode") { prefs.mode = m }
             prefs.sidebar = true
         }
+        if prefs.persist { prefs.applyStartupFolders() }
         if Instance.isDedicated && prefs.persist { startDedicated() }
         prefs.applyAppearance()
         prefs.applyDockIcon()
@@ -389,6 +390,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func send(_ sel: Selector) -> () -> Void { { _ = NSApp.sendAction(sel, to: nil, from: nil) } }
 
+    /// File → Folders at start: the same three choices as the ⋯ menu of the Files panel.
+    private func startupItem() -> NSMenuItem {
+        let sub = NSMenu(title: L("StartupMenu"))
+        sub.delegate = states
+        for (key, label, tip) in [("restore", "StartupRestore", "StartupRestoreTip"), ("clean", "StartupClean", "StartupCleanTip"),
+                                  ("pinned", "StartupPinned", "StartupPinnedTip")] {
+            let i = item(L(label), on: { [weak self] in self?.prefs.startupFolders == key }) { [weak self] in self?.prefs.startupFolders = key }
+            i.toolTip = L(tip)
+            sub.addItem(i)
+        }
+        let top = NSMenuItem(title: L("StartupMenu"), action: nil, keyEquivalent: "")
+        top.submenu = sub
+        return top
+    }
+
     func buildMenus() {
         let bar = NSMenu()
         bar.addItem(top("Gryphmark", [
@@ -425,6 +441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recentItem,
             item(L("OpenDir"), key: "o", mods: [.command, .shift]) { [weak self] in self?.pickFolder() },
             item(L("CloseDir")) { [weak self] in self?.prefs.folders = [] },
+            startupItem(),
             .separator(),
             item(L("CloseWindow"), key: "w") { NSApp.keyWindow?.performClose(nil) },
             item(L("Save"), key: "s", doc { d in Task { await d.save(as: false) } }),
@@ -531,6 +548,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         d.window?.center()
         let file = argument(after: "--open").map { URL(fileURLWithPath: $0) }
         if let folder = argument(after: "--folder") { prefs.folders = [folder]; prefs.sidebar = true }   // the Files panel
+        if let list = argument(after: "--folders") { prefs.folders = list.split(separator: ":").map(String.init); prefs.sidebar = true }
+        if let pin = argument(after: "--pin") { prefs.pinned = [pin] }
+        if let c = argument(after: "--folder-colors") { prefs.folderColors = c }
         d.onReady = { [weak self] in
             if let file { d.open(file) } else { self?.openSample(in: d) }
             var target: NSWindow? = d.window

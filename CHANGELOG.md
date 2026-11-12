@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — 2026-11-12
+
+- **The folders of the Files panel work as on Windows.** Each folder has its own colour: tones of the theme colour,
+  multicolour, or none, and any folder can take one of twelve colours by hand (right-click its name → Colour).
+- **Pin to top**: a pinned folder goes first and shows a pin. **Move up** and **Move down** change the order by hand.
+- **The ⋯ button of the Files panel**: order of the folders (order opened, name A → Z or Z → A, recently modified
+  first), their colours, and what opens at start.
+- **Folders at start** (also in the File menu): reopen the folders of the last session, start clean, or start with
+  only the pinned folders.
+- The right-click menu of a folder adds *Copy path*; closing a folder also unpins it and forgets its colour.
+
 ## 1.2.0 — 2026-11-12
 
 - **The open file stands out in the Files panel**: a filled band in the window's colour (it was only bold), and the
