@@ -147,6 +147,27 @@ enum SelfTest {
         check("mermaid: diagram drawn in the GitHub view", mermaidOK)
         d.setMode("visual")
 
+        // A table with an empty <tbody> (pandoc writes one for every one-row table) opens in every view;
+        // up to 1.1.1 the editor library threw on it and the page stayed blank.
+        let emptyBody = "# T\n\n<table>\n<thead>\n<tr>\n<th>solo</th>\n</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+        var blank: [String] = []
+        try? await Task.sleep(nanoseconds: 300_000_000)   // let the setMode above (run in a Task) finish first
+        for (mode, sel) in [("preview", "#preview"), ("visual", ".toastui-editor-ww-container .ProseMirror"),
+                            ("source", ".toastui-editor-md-container .ProseMirror")] {
+            await d.web.call("mdApp.setMode(m)", ["m": mode])
+            await d.loadText(emptyBody, sample: false)
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let shown = await d.web.call("const e = document.querySelector(s); return !!(e && e.textContent.includes('solo')) && !mdApp.editorBroken() && mdApp.getMarkdownPreserving() === t",
+                                         ["s": sel, "t": emptyBody]) as? Bool ?? false
+            if !shown {
+                let why = await d.web.call("const e = document.querySelector(s); return JSON.stringify({found: !!e, text: e ? e.textContent.slice(0, 60) : null, broken: mdApp.editorBroken(), same: mdApp.getMarkdownPreserving() === t, body: document.body.className})",
+                                           ["s": sel, "t": emptyBody]) as? String ?? "?"
+                blank.append(mode + " " + why)
+            }
+        }
+        check("tables: an empty <tbody> opens in every view and saves unchanged", blank.isEmpty, "failed in \(blank)")
+        d.setMode("visual")
+
         // A hostile document.
         let hostile = """
             # Hostile

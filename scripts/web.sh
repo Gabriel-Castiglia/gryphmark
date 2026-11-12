@@ -20,6 +20,11 @@ npm ci --silent
 W="$RAIZ/web/lib"
 mkdir -p "$W/fonts"
 npx esbuild entry.js --bundle --minify --format=iife --outfile="$W/bundle.js"
+# TOAST UI 3.2.2 reads the first row of a <tbody> without checking that there is one, so a table with an
+# empty <tbody> (pandoc writes one for every one-row table) threw and left the page blank. Patched here;
+# the build stops if the code it fixes is not found exactly once.
+perl -0777 -pi -e '$n += s/var (\w+)=(\w+)\.querySelectorAll\("tr"\),(\w+)=\1\[0\]\.children\.length/var ${1}=${2}.querySelectorAll("tr"),${3}=${1}.length?${1}[0].children.length:0/g; END { exit($n == 1 ? 0 : 3) }' "$W/bundle.js" \
+    || { echo "TOAST UI <tbody> patch: the code to fix was not found once in bundle.js" >&2; exit 1 }
 nm=node_modules
 cp $nm/@toast-ui/editor/dist/toastui-editor.css $nm/@toast-ui/editor/dist/theme/toastui-editor-dark.css \
    $nm/@toast-ui/editor-plugin-code-syntax-highlight/dist/toastui-editor-plugin-code-syntax-highlight.css \

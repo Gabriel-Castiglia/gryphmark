@@ -18,7 +18,7 @@ RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 [[ "${FIRMA:-}" == adhoc ]] || source scripts/firma.sh
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 COMPILACION="1"
 APP="build/Gryphmark.app"
 
