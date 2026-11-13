@@ -41,6 +41,9 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     private var watcher: FileWatcher?
     private var diskText: String?            // the text last read from or written to disk
     private var askingReload = false
+    private var lastEditSeq = 0               // the last edit the page reported (app.js editSeq)
+    private var saving = false
+    private var autoSaveTimer: Timer?
     private var pendingOpen: URL?
     private var pendingExport: URL?
     private var recoveryTimer: Timer?
@@ -98,12 +101,15 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
                     "lang": prefs.lang, "theme": prefs.dark ? "dark" : "light", "mode": prefs.mode,
                     "spell": prefs.spell, "locked": prefs.readOnly])
                 model.ready = true
+                lastEditSeq = 0       // a new page counts its edits from zero
                 if let p = pendingOpen { pendingOpen = nil; await load(p) }
                 onReady?()
             }
         case "dirty":
             if let w = m["words"] as? Int { model.words = w }
+            if let n = m["seq"] as? Int { lastEditSeq = max(lastEditSeq, n) }
             if !model.dirty { model.dirty = true; updateTitle() }
+            scheduleAutoSave()
         case "outline":
             let items = (m["items"] as? [[String: Any]]) ?? []
             model.outline = items.map { (($0["level"] as? Int) ?? 1, ($0["text"] as? String) ?? "") }
@@ -262,9 +268,11 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     // MARK: save
 
+    /// Writes the document. auto: an autosave, which says nothing when it works and reports a failure
+    /// in the status line instead of an alert.
     @MainActor
     @discardableResult
-    func save(as forceDialog: Bool) async -> Bool {
+    func save(as forceDialog: Bool, auto: Bool = false) async -> Bool {
         var target = model.path
         if forceDialog || target == nil {
             let panel = NSSavePanel()
@@ -275,10 +283,15 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             target = u
         }
         guard let target else { return false }
-        // untouched blocks keep their original Markdown; line endings and BOM as the file had them
-        var md = (await web.call("return mdApp.getMarkdownPreserving()") as? String) ?? ""
-        if !md.hasSuffix("\n") { md += "\n" }
-        await web.call("mdApp.markSaved(t)", ["t": md])
+        saving = true
+        defer { saving = false }
+        // untouched blocks keep their original Markdown; line endings and BOM as the file had them.
+        // The text is taken and marked as saved in one call; seq is the last edit it holds.
+        guard let snap = await web.call("return mdApp.takeForSave()") as? [String: Any], let md = snap["text"] as? String else {
+            if auto { flash(L("ErrAutoSave", "the page did not answer")) } else { alert(L("ErrSave", "the page did not answer")) }
+            return false
+        }
+        let seq = snap["seq"] as? Int ?? lastEditSeq
         let disk = model.crlf ? md.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\n", with: "\r\n") : md
         var data = Data(disk.utf8)
         if model.bom { data.insert(contentsOf: [0xEF, 0xBB, 0xBF], at: 0) }
@@ -286,7 +299,9 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             diskText = disk
             try data.write(to: target, options: .atomic)
             let moved = target != model.path
-            model.path = target; model.dirty = false; model.isSample = false
+            model.path = target; model.isSample = false
+            model.dirty = lastEditSeq > seq     // typed while saving: still modified, and saved again shortly
+            if model.dirty { scheduleAutoSave() }
             if moved {
                 applyReach(target.deletingLastPathComponent())
                 await web.call("mdApp.setBase(b)", ["b": Schemes.docBase(for: target.deletingLastPathComponent())])
@@ -296,10 +311,10 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             prefs.addRecent(target.path)
             NSDocumentController.shared.noteNewRecentDocumentURL(target)
             updateTitle()
-            flash(L("Saved"))
+            if !auto { flash(L("Saved")) }
             return true
         } catch {
-            alert(L("ErrSave", error.localizedDescription))
+            if auto { flash(L("ErrAutoSave", error.localizedDescription)) } else { alert(L("ErrSave", error.localizedDescription)) }
             return false
         }
     }
@@ -308,6 +323,9 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     @MainActor
     func confirmDiscard() async -> Bool {
         guard model.dirty, let w = window else { return true }
+        // With autosave on, a file with a name is saved without asking, unless another program
+        // changed it meanwhile: then the question below decides.
+        if canAutoSave(), await save(as: false, auto: true) { return true }
         let a = NSAlert()
         a.messageText = L("AskSave", model.path?.lastPathComponent ?? L("Untitled"))
         a.addButton(withTitle: L("SaveBtn"))
@@ -341,6 +359,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         watcher = nil
+        autoSaveTimer?.invalidate()
         recoveryTimer?.invalidate()
         clearRecovery()
         DocWindow.all.removeAll { $0 === self }
@@ -400,6 +419,42 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             reloading = false
             if reloadAgain { reloadAgain = false; diskChanged() }
         }
+    }
+
+    // MARK: autosave
+
+    // On by default: a document with a name is written 1.5 s after the typing stops. It never writes
+    // over a change made by another program (the live reload asks first), never a new untitled
+    // document or the sample, and never while saving or reloading.
+    private func canAutoSave() -> Bool {
+        guard prefs.autoSave, model.ready, let url = model.path, !model.isSample, !saving, !reloading, !askingReload,
+              let r = try? DocWindow.read(url) else { return false }
+        return r.text == diskText
+    }
+
+    private func scheduleAutoSave() {
+        autoSaveTimer?.invalidate()
+        guard prefs.autoSave, model.path != nil else { return }
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            Task { @MainActor in await self?.autoSave() }
+        }
+    }
+
+    @MainActor
+    func autoSave() async {
+        autoSaveTimer?.invalidate()
+        guard model.dirty, model.path != nil else { return }
+        if saving || reloading || askingReload { scheduleAutoSave(); return }   // busy: later
+        if canAutoSave() { await save(as: false, auto: true) }
+    }
+
+    /// The switch in the toolbar and File → Autosave: for every window.
+    static func setAutoSave(_ on: Bool) {
+        Prefs.shared.autoSave = on
+        for d in DocWindow.all {
+            if !on { d.autoSaveTimer?.invalidate() } else if d.model.dirty { Task { @MainActor in await d.autoSave() } }
+        }
+        (NSApp.keyWindow?.windowController as? DocWindow)?.flash(L(on ? "AutoSaveOn" : "AutoSaveOff"))
     }
 
     // MARK: crash recovery

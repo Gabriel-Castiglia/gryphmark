@@ -446,6 +446,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item(L("CloseWindow"), key: "w") { NSApp.keyWindow?.performClose(nil) },
             item(L("Save"), key: "s", doc { d in Task { await d.save(as: false) } }),
             item(L("SaveAs"), key: "s", mods: [.command, .shift], doc { d in Task { await d.save(as: true) } }),
+            item(L("AutoSave"), on: { [weak self] in self?.prefs.autoSave == true }) { DocWindow.setAutoSave(!Prefs.shared.autoSave) },
             item(L("ExportHtml"), key: "e", doc { $0.exportHtml() }),
             item(L("Print"), key: "p", doc { $0.command("print") }),
             .separator(),

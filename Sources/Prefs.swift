@@ -17,6 +17,7 @@ final class Prefs: ObservableObject {
     @Published var accent = "gold" { didSet { save(); applyDockIcon() } }
     @Published var mode = "visual" { didSet { save() } }                        // visual, source, preview
     @Published var spell = true { didSet { save() } }
+    @Published var autoSave = true { didSet { save() } }                    // saves a moment after the typing stops
     @Published var readOnly = false { didSet { save() } }
     @Published var zoom = 1.0 { didSet { save() } }
     @Published var sidebar = true { didSet { save() } }
@@ -47,6 +48,7 @@ final class Prefs: ObservableObject {
         accent = d.string(forKey: "Accent") ?? "gold"
         mode = d.string(forKey: "Mode") ?? "visual"
         spell = d.object(forKey: "Spell") as? Bool ?? true
+        autoSave = d.object(forKey: "AutoSave") as? Bool ?? true
         readOnly = d.bool(forKey: "ReadOnly")
         zoom = max(0.5, min(3, d.object(forKey: "Zoom") as? Double ?? 1))
         sidebar = d.object(forKey: "Sidebar") as? Bool ?? true
@@ -65,7 +67,7 @@ final class Prefs: ObservableObject {
     func save() {
         guard persist, !loading else { return }
         let values: [String: Any] = [
-            "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "ReadOnly": readOnly,
+            "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "AutoSave": autoSave, "ReadOnly": readOnly,
             "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "Recent": recent, "Folders": folders, "SampleShown": sampleShown,
             "PinnedFolders": pinned, "StartupFolders": startupFolders, "FolderSort": folderSort, "FolderColors": folderColors,
             "FolderColorMap": folderColorMap,

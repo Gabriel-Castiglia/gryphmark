@@ -51,6 +51,53 @@ enum SelfTest {
         return await until()
     }
 
+    /// Autosave (on by default, off on request, a pending edit saved when it is turned on), a save that
+    /// keeps an edit typed after it, and the visual view's scrollbar at the window's edge.
+    @MainActor
+    private static func autoSaveAndScroll(_ d: DocWindow, _ tmp: URL) async {
+        let auto = tmp.appendingPathComponent("auto.md")
+        let disk = { (try? String(contentsOf: auto, encoding: .utf8)) ?? "" }
+        try? Data("# Auto\n\nbody\n".utf8).write(to: auto)
+        await d.load(auto)
+        check("autosave: on by default", Prefs.shared.autoSave)
+        await d.web.call("mdApp.setLocked(false); mdApp.focus(); mdApp.insertText('typed ')")
+        var ok = await wait(4) { !d.model.dirty && disk().contains("typed") }
+        check("autosave: the file is written after a pause and the window is clean", ok, disk())
+        DocWindow.setAutoSave(false)
+        await d.web.call("mdApp.focus(); mdApp.insertText('manual ')")
+        try? await Task.sleep(nanoseconds: 2_200_000_000)
+        check("autosave: off leaves the file alone", d.model.dirty && !disk().contains("manual"), disk())
+        DocWindow.setAutoSave(true)
+        ok = await wait(3) { !d.model.dirty && disk().contains("manual") }
+        check("autosave: turning it on saves what was pending", ok, disk())
+        // a save takes the text and marks it saved in one step: an edit typed right after is kept for the next one
+        let r = await d.web.call("""
+            mdApp.focus(); mdApp.insertText('a1 '); await new Promise(r => setTimeout(r, 100));
+            const s1 = mdApp.takeForSave(); mdApp.insertText('b2 '); await new Promise(r => setTimeout(r, 100));
+            const s2 = mdApp.takeForSave();
+            return [s1.text.includes('a1') && !s1.text.includes('b2'), s2.text.includes('a1 b2'), s2.seq > s1.seq]
+            """) as? [Bool] ?? []
+        check("save: an edit typed after the text was taken stays for the next save", r == [true, true, true], "\(r)")
+        _ = await wait(4) { !d.model.dirty }
+
+        // The visual view scrolls in an element as wide as the page, so its scrollbar is at the window's
+        // edge; the text keeps GitHub's 980 px column. At 50 % zoom the page is wider than the column.
+        await d.loadText((1 ... 200).map { "Line \($0)" }.joined(separator: "\n\n"), sample: false)
+        d.web.view.pageZoom = 0.5
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        let m = await d.web.call("""
+            mdApp.setMode('visual'); await new Promise(r => setTimeout(r, 200));
+            const sc = document.querySelector('.toastui-editor-ww-container .ProseMirror'), cs = getComputedStyle(sc);
+            return [innerWidth, sc.getBoundingClientRect().right, sc.scrollHeight > sc.clientHeight ? 1 : 0,
+                    sc.offsetWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)]
+            """) as? [Double] ?? []
+        d.web.view.pageZoom = Prefs.shared.zoom
+        await d.web.call("mdApp.setMode(m)", ["m": Prefs.shared.mode])
+        check("scroll: the visual view's scrollbar is at the window's edge, the text in its 980 px column",
+              m.count == 4 && m[0] > 1100 && abs(m[1] - m[0]) < 1 && m[2] == 1 && abs(m[3] - 890) < 2, "\(m)")
+        await d.loadText("", sample: false)
+    }
+
     @MainActor
     private static func markdown(_ d: DocWindow) async -> String {
         (await d.web.call("return mdApp.getMarkdown()") as? String) ?? ""
@@ -371,10 +418,15 @@ enum SelfTest {
         try? await Task.sleep(nanoseconds: 800_000_000)
         let kept = await markdown(d)
         check("live reload: unsaved changes are not overwritten", d.model.dirty && kept.contains("local edit") && !kept.contains("Outside"), kept)
+        // autosave (on) waits for the question: the other program's text stays on disk
+        try? await Task.sleep(nanoseconds: 1_800_000_000)
+        let outside = (try? String(contentsOf: live, encoding: .utf8)) ?? ""
+        check("autosave: never writes over another program's change", outside == "# Outside\n", outside)
         d.window?.attachedSheet.map { d.window?.endSheet($0, returnCode: .alertSecondButtonReturn) }
         try? await Task.sleep(nanoseconds: 200_000_000)
         d.model.dirty = false
 
+        await autoSaveAndScroll(d, tmp)
         await reachAndWiki(d, tmp)
         await dedicated(tmp)
 

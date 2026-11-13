@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.3.0 · GPL-2.0-only
+Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.4.0 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -75,6 +75,10 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
   autónoma (⌘E), imprimir o guardar como PDF (⌘P).
 - Al guardar se respeta tu formato: los bloques que no tocaste conservan su Markdown original, y el archivo
   conserva sus fines de línea (LF o CRLF) y su marca de orden de bytes.
+- Autoguardado, encendido de fábrica: un archivo con nombre se guarda solo un momento después de que dejás de
+  escribir. El interruptor *Autoguardado* de la barra (también Archivo → Autoguardado) lo apaga, y entonces solo
+  Guardar (⌘S) escribe el archivo. Nunca escribe encima de un cambio hecho por otro programa: Gryphmark pregunta
+  antes, igual que sin autoguardado.
 - Si Gryphmark se cierra sin guardar, al volver a abrirlo ofrece recuperar el texto.
 - Los enlaces `[[nombre]]` de la vista GitHub abren el archivo Markdown de ese nombre en las carpetas abiertas,
   como en una wiki; el que no lleva a ningún archivo sale en rojo. Un documento que está dentro de una carpeta del

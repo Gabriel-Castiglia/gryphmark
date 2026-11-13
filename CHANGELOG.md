@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 — 2026-11-13
+
+- **Autosave**, on by default: a file with a name saves itself 1.5 seconds after you stop typing. A switch in the
+  toolbar, and File → Autosave, turn it on and off. It never writes over a change made by another program (the
+  live reload asks first), and never a new untitled document: that one is saved by itself once it has a name.
+- **The scrollbar of the Visual view is at the window's edge.** In a window wider than the 980 px text column it
+  stood at the edge of the column, with a wide empty margin to its right. The column is the same width as before.
+- Saving takes the text and marks it saved in one step: a key pressed while a save was under way could be left out
+  of the file and of the next save.
+
 ## 1.3.0 — 2026-11-12
 
 - **The folders of the Files panel work as on Windows.** Each folder has its own colour: tones of the theme colour,

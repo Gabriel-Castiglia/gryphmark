@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 1.3.0 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 1.4.0 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -74,6 +74,9 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
   print or save as PDF (⌘P).
 - Saving keeps your formatting: blocks you did not touch keep their original Markdown, and the file keeps its
   line endings (LF or CRLF) and its byte order mark.
+- Autosave, on by default: a file with a name saves itself a moment after you stop typing. The *Autosave* switch
+  in the toolbar (also File → Autosave) turns it off, and then only Save (⌘S) writes the file. It never writes over
+  a change made by another program: Gryphmark asks first, as without autosave.
 - If Gryphmark closes without saving, the next start offers the unsaved text back.
 - `[[name]]` links in the GitHub view open the Markdown file of that name in the open folders, as in a wiki; one
   that matches no file is shown in red. A document inside a folder of the Files panel can link to the other

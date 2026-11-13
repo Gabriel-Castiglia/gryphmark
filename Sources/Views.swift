@@ -183,6 +183,10 @@ struct ToolbarView: View {
             .frame(minWidth: 0, alignment: .leading)
             .layoutPriority(-1)
             Spacer(minLength: 8)
+            Toggle(isOn: Binding(get: { prefs.autoSave }, set: { DocWindow.setAutoSave($0) })) {
+                Text(L("AutoSave")).font(.system(size: 12))
+            }
+            .toggleStyle(.switch).controlSize(.mini).fixedSize().help(L("TipAutoSave"))
             Picker("", selection: Binding(get: { prefs.readOnly }, set: { doc.setReadOnly($0) })) {
                 Text(L("SegEdit")).tag(false).help(L("TipEdit"))
                 Text(L("SegRead")).tag(true).help(L("TipRead"))
