@@ -117,7 +117,7 @@
     const el = document.getElementById('preview');
     el.innerHTML = renderGithub(currentText());
     await runMermaid(el);
-    linkWiki(el);
+    if (state.wiki) linkWiki(el);
   }
 
   // ------------------------------------------------------------------ [[name]] links (GitHub view only)
@@ -569,7 +569,8 @@
     setTheme(theme) { const t = editorText(); state.theme = theme; applyTheme(); build(t); applyMode(); },
     setMode(mode) { state.mode = mode; applyMode(); },
     setSpell(on) { state.spell = !!on; applySpell(); },
-    init(lang, theme, mode, spell, locked) { state = { lang, theme, mode, spell: spell !== false, locked: !!locked }; applyTheme(); build(''); applyMode(); },
+    // wiki: the host resolves [[name]] links (the macOS app does; until the Windows app does, they stay as text)
+    init(lang, theme, mode, spell, locked, wiki) { state = { lang, theme, mode, spell: spell !== false, locked: !!locked, wiki: !!wiki }; applyTheme(); build(''); applyMode(); },
     setLocked(on) { state.locked = !!on; applyLock(); },
     exec(cmd, payload) { if (!editor || state.mode === 'preview' || state.locked) return; try { editor.exec(cmd, payload); } catch (e) { } editor.focus(); },
     insertText(t) { if (!state.locked && editor) editor.insertText(t); },

@@ -60,9 +60,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if launched { urls.forEach { open($0, from: nil) } } else { launchFiles += urls }
     }
 
+    /// The self-test without visible windows (see applicationDidFinishLaunching).
+    static var quiet = false
+
     func applicationDidFinishLaunching(_ n: Notification) {
         let shot = argument(after: "--screenshot")
         let selfTest = CommandLine.arguments.contains("--self-test")
+        // The self-test runs out of sight unless asked (--visible): no Dock icon, no focus taken, and its
+        // windows transparent and click-through, so it never covers what Gabriel is doing (13-nov-2026).
+        AppDelegate.quiet = selfTest && !CommandLine.arguments.contains("--visible")
+        if AppDelegate.quiet { NSApp.setActivationPolicy(.accessory) }
         prefs.persist = shot == nil && !selfTest
         prefs.load()
         if shot != nil {
@@ -208,8 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if prefs.persist { w.setFrameAutosaveName(first ? "Document" : "") }
         }
-        d.showWindow(nil)
-        NSApp.activate()
+        if AppDelegate.quiet, let w = d.window { w.alphaValue = 0; w.ignoresMouseEvents = true; w.orderBack(nil) }
+        else { d.showWindow(nil); NSApp.activate() }
         return d
     }
 

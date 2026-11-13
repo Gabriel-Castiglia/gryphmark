@@ -97,7 +97,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         switch m["type"] as? String {
         case "ready":
             Task { @MainActor in
-                await web.call("mdApp.init(lang, theme, mode, spell, locked)", [
+                await web.call("mdApp.init(lang, theme, mode, spell, locked, true)", [
                     "lang": prefs.lang, "theme": prefs.dark ? "dark" : "light", "mode": prefs.mode,
                     "spell": prefs.spell, "locked": prefs.readOnly])
                 model.ready = true

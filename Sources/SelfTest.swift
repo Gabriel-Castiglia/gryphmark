@@ -27,6 +27,13 @@ import ImageIO
 enum SelfTest {
     private static var failures = 0
 
+    private static var skipped = 0
+
+    private static func skip(_ name: String) {
+        skipped += 1
+        FileHandle.standardError.write(Data("skip \(name) (needs --visible)\n".utf8))
+    }
+
     private static func check(_ name: String, _ ok: Bool, _ detail: @autoclosure () -> String = "") {
         if !ok { failures += 1 }
         FileHandle.standardError.write(Data("\(ok ? "ok  " : "FAIL") \(name)\(ok ? "" : ": " + detail())\n".utf8))
@@ -165,21 +172,28 @@ enum SelfTest {
                 send(.leftMouseUp, NSPoint(x: from.x + dx, y: from.y + dy))
                 try? await Task.sleep(nanoseconds: 400_000_000)
             }
-            // An inactive window takes the first click to come forward and the drag never starts: activate it first.
-            NSApp.activate(ignoringOtherApps: true); w.makeKeyAndOrderFront(nil)
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            let before = d.web.view.convert(d.web.view.bounds, to: nil)
-            await drag(NSPoint(x: before.minX - SplitHandle.thickness / 2, y: before.midY), 120, 0)
-            let after = d.web.view.convert(d.web.view.bounds, to: nil)
-            check("sidebar: its divider is dragged wider and the width is kept",
-                  abs(after.minX - before.minX - 120) < 4 && abs(p.sidebarWidth - 380) < 4,
-                  "page from \(before.minX) to \(after.minX), saved \(p.sidebarWidth)")
-            // Files above, Contents below: the sidebar runs from the bottom of the window to the top of the page.
-            let usable = Double(after.maxY - SplitHandle.thickness)
-            let handleY = CGFloat((usable * 0.45).rounded()) + SplitHandle.thickness / 2
-            await drag(NSPoint(x: after.minX / 2, y: handleY), 0, CGFloat(usable * 0.2))
-            check("sidebar: the divider between Files and Contents is dragged and the split is kept",
-                  abs(p.outlineShare - 0.65) < 0.03, "share \(p.outlineShare), usable \(usable)")
+            // A drag needs the window active (an inactive one takes the first click to come forward), which only
+            // the visible self-test may do: out of sight these two are skipped (--visible runs them).
+            if !AppDelegate.quiet {
+                // An inactive window takes the first click to come forward and the drag never starts: activate it first.
+                NSApp.activate(ignoringOtherApps: true); w.makeKeyAndOrderFront(nil)
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                let before = d.web.view.convert(d.web.view.bounds, to: nil)
+                await drag(NSPoint(x: before.minX - SplitHandle.thickness / 2, y: before.midY), 120, 0)
+                let after = d.web.view.convert(d.web.view.bounds, to: nil)
+                check("sidebar: its divider is dragged wider and the width is kept",
+                      abs(after.minX - before.minX - 120) < 4 && abs(p.sidebarWidth - 380) < 4,
+                      "page from \(before.minX) to \(after.minX), saved \(p.sidebarWidth)")
+                // Files above, Contents below: the sidebar runs from the bottom of the window to the top of the page.
+                let usable = Double(after.maxY - SplitHandle.thickness)
+                let handleY = CGFloat((usable * 0.45).rounded()) + SplitHandle.thickness / 2
+                await drag(NSPoint(x: after.minX / 2, y: handleY), 0, CGFloat(usable * 0.2))
+                check("sidebar: the divider between Files and Contents is dragged and the split is kept",
+                      abs(p.outlineShare - 0.65) < 0.03, "share \(p.outlineShare), usable \(usable)")
+            } else {
+                skip("sidebar: its divider is dragged wider and the width is kept")
+                skip("sidebar: the divider between Files and Contents is dragged and the split is kept")
+            }
             p.sidebarWidth = 700
             w.setContentSize(NSSize(width: 800, height: 600))
             try? await Task.sleep(nanoseconds: 400_000_000)
@@ -439,7 +453,8 @@ enum SelfTest {
         check("export: HTML with the text and no scripts", ok && exported.contains("Exported") && exported.contains("markdown-body")
               && !exported.lowercased().contains("<script"), String(exported.suffix(200)))
 
-        FileHandle.standardError.write(Data((failures == 0 ? "self-test: all passed\n" : "self-test: \(failures) failed\n").utf8))
+        let skips = skipped > 0 ? " (\(skipped) skipped: they need --visible)" : ""
+        FileHandle.standardError.write(Data((failures == 0 ? "self-test: all passed\(skips)\n" : "self-test: \(failures) failed\(skips)\n").utf8))
         try? fm.removeItem(at: tmp)
         exit(failures == 0 ? 0 : 1)
     }

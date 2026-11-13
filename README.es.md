@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.4.0 · GPL-2.0-only
+Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.4.1 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -117,7 +117,9 @@ para que macOS vea la misma app de una compilación a otra y no vuelva a pedir a
 `FIRMA=adhoc scripts/compilar.sh` la firma sin ese certificado, para una prueba rápida. La versión se escribe
 solo en `scripts/compilar.sh`.
 
-La autoprueba corre en una ventana real con la página real: el ejemplo, el cambio de tamaño (en su tamaño mínimo
+La autoprueba corre en una ventana real con la página real, sin que se vea: la ventana es transparente, no recibe
+clics ni pasa al frente, y la app no muestra ícono en el Dock (`--visible` la muestra, y además arrastra los
+divisores de la barra lateral). Revisa el ejemplo, el cambio de tamaño (en su tamaño mínimo
 la ventana no corta nada), el tema oscuro con todo el texto legible, un diagrama Mermaid, un documento hostil (no
 puede correr ningún script), las reglas de los enlaces, guardar byte por byte con BOM y CRLF, la recarga en vivo
 al reemplazar, borrar y volver a crear, escribir y guardar muchas veces seguidas, los cambios sin guardar

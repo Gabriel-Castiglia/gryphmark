@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 1.4.0 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 1.4.1 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -115,7 +115,9 @@ so macOS sees the same app from one build to the next and does not ask again for
 `FIRMA=adhoc scripts/compilar.sh` signs it without that certificate, for a quick test. The version is written
 only in `scripts/compilar.sh`.
 
-The self-test runs in a real window with the real page: the sample, resizing (at its smallest the window cuts
+The self-test runs in a real window with the real page, out of sight: the window is transparent, takes no clicks and
+never comes to the front, and the app shows no Dock icon (`--visible` shows it, and also drags the sidebar's dividers).
+It checks the sample, resizing (at its smallest the window cuts
 nothing off), the dark theme with every kind of text readable, a Mermaid diagram, a hostile document (no script
 may run), the link rules, saving byte for byte with BOM and CRLF, live reload by replacing, deleting and
 re-creating, writing and a burst of saves, unsaved changes kept, and HTML export.

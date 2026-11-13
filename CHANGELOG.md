@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 — 2026-11-13
+
+- The editor page is now the same file as in the Windows version (checked on every commit). Nothing changes in use.
+- The self-test runs out of sight: no Dock icon, no window in front, nothing that takes the focus. `--self-test
+  --visible` also runs the two checks that drag the sidebar's dividers, which need the window in front.
+
 ## 1.4.0 — 2026-11-13
 
 - **Autosave**, on by default: a file with a name saves itself 1.5 seconds after you stop typing. A switch in the
