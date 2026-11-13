@@ -97,6 +97,17 @@ struct ThemeView: View {
 
 struct AboutView: View {
     @ObservedObject var prefs: Prefs
+    @StateObject private var copied = Flag()
+
+    final class Flag: ObservableObject { @Published var on = false }
+
+    /// What a problem report needs, as Copy info gives it on Windows.
+    static var info: String {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let webkit = Bundle(identifier: "com.apple.WebKit")?.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "Gryphmark \(appVersion) — © 2026 Gabriel Castiglia — GPL-2.0-only\n" +
+            "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion) · arm64\nWebKit \(webkit)"
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -110,6 +121,11 @@ struct AboutView: View {
             Text(L("AboutCreditsTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).padding(.top, 4)
             Text(credits).font(.system(size: 11)).foregroundStyle(.secondary)
             Text(L("AboutIcon")).font(.system(size: 11)).foregroundStyle(.secondary)
+            Button(L(copied.on ? "AboutCopied" : "AboutCopy")) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(AboutView.info, forType: .string)
+                copied.on = true
+            }.padding(.top, 6)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)

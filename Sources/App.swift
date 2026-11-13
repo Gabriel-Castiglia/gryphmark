@@ -267,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func addFolder(_ u: URL) {
         if !prefs.folders.contains(u.path) { prefs.folders.append(u.path) }
+        prefs.recentFolders = Array(([u.path] + prefs.recentFolders.filter { $0 != u.path }).prefix(6))
         prefs.sidebar = true
     }
 
@@ -431,15 +432,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recent.delegate = states
         let recentItem = NSMenuItem(title: L("Recent"), action: nil, keyEquivalent: "")
         recentItem.submenu = recent
-        if prefs.recent.isEmpty {
+        // as on Windows: the sample first (unless hidden), the files, then the folders opened lately
+        if AppDelegate.samplePath != nil && !prefs.sampleHidden {
+            recent.addItem(item(L("SampleItem")) { [weak self] in self?.openSample() })
+            recent.addItem(item(L("SampleHide")) { [weak self] in self?.prefs.sampleHidden = true; self?.buildMenus() })
+            recent.addItem(.separator())
+        }
+        if prefs.recent.isEmpty && prefs.recentFolders.isEmpty {
             let e = NSMenuItem(title: L("RecentEmpty"), action: nil, keyEquivalent: ""); e.isEnabled = false
             recent.addItem(e)
         } else {
             for p in prefs.recent {
                 recent.addItem(item((p as NSString).lastPathComponent) { [weak self] in self?.open(URL(fileURLWithPath: p), from: nil) })
             }
+            if !prefs.recentFolders.isEmpty {
+                if !prefs.recent.isEmpty { recent.addItem(.separator()) }
+                let h = NSMenuItem(title: L("RecentFolders"), action: nil, keyEquivalent: ""); h.isEnabled = false
+                recent.addItem(h)
+                for p in prefs.recentFolders {
+                    recent.addItem(item((p as NSString).lastPathComponent) { [weak self] in self?.addFolder(URL(fileURLWithPath: p)) })
+                }
+            }
             recent.addItem(.separator())
-            recent.addItem(item(L("RecentClear")) { [weak self] in self?.prefs.recent = []; self?.buildMenus() })
+            recent.addItem(item(L("RecentClear")) { [weak self] in self?.prefs.recent = []; self?.prefs.recentFolders = []; self?.buildMenus() })
         }
 
         bar.addItem(top(L("File"), [
@@ -539,6 +554,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSWorkspace.shared.open(URL(string: "https://docs.github.com/\(page)/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax")!)
             },
             item(L("Sample")) { [weak self] in self?.openSample() },
+            item(L("SampleInRecent"), on: { [weak self] in self?.prefs.sampleHidden == false }) { [weak self] in
+                self?.prefs.sampleHidden.toggle(); self?.buildMenus()
+            },
         ])
         bar.addItem(help)
         NSApp.mainMenu = bar

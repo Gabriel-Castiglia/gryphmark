@@ -595,6 +595,11 @@ struct StatusLine: View {
             Spacer()
             Button { (NSApp.keyWindow?.windowController as? DocWindow)?.setZoom(prefs.zoom - 0.1) } label: { Image(systemName: "minus.magnifyingglass") }
                 .buttonStyle(.borderless).help(L("ZoomOut"))
+            // the zoom bar, as on Windows: 50 % to 300 % in steps of 10
+            Slider(value: Binding(get: { prefs.zoom }, set: { z in
+                if let d = DocWindow.all.first(where: { $0.model === model }) { d.setZoom(z) } else { prefs.zoom = z }
+            }), in: 0.5...3, step: 0.1)
+                .controlSize(.mini).frame(width: 110).help(L("ZoomSliderTip"))
             Button("\(Int((prefs.zoom * 100).rounded())) %") { (NSApp.keyWindow?.windowController as? DocWindow)?.setZoom(1) }
                 .buttonStyle(.borderless).help(L("ZoomReset"))
             Button { (NSApp.keyWindow?.windowController as? DocWindow)?.setZoom(prefs.zoom + 0.1) } label: { Image(systemName: "plus.magnifyingglass") }

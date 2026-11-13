@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0 — 2026-11-14
+
+- **Reading at the end, you follow the end**: when another program adds text at the bottom of the file and you were
+  at the end of the view, the view goes down with it, as in a terminal. Anywhere else you stay where you were.
+- As on Windows: **File → Open recent** also lists the folders opened lately and the sample (*Hide sample* takes it
+  out; *Help → Show sample in Open recent* brings it back); **Copy info** in About copies the version and the system
+  for a problem report; the status line has a **zoom slider**.
+
 ## 1.5.0 — 2026-11-13
 
 - **What another program changed is marked in green** for a few seconds after a reload, in every view: new or

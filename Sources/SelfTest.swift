@@ -443,6 +443,19 @@ enum SelfTest {
         d.model.dirty = false
 
         await autoSaveAndScroll(d, tmp)
+        // As on Windows: folders opened lately in Open recent, Copy info in About, the sample in the menu.
+        let xapp = NSApp.delegate as! AppDelegate, xp = Prefs.shared
+        let savedFolders = xp.folders, savedRecent = xp.recentFolders
+        xapp.addFolder(tmp)
+        check("recent: an opened folder is first in the recent folders", xp.recentFolders.first == tmp.path, "\(xp.recentFolders)")
+        xp.folders = savedFolders; xp.recentFolders = savedRecent
+        check("about: Copy info gives the version and the system",
+              AboutView.info.contains("Gryphmark \(appVersion)") && AboutView.info.contains("macOS "), AboutView.info)
+        xapp.buildMenus()
+        let recentMenu = NSApp.mainMenu?.items.first(where: { $0.submenu?.items.contains { $0.title == L("Recent") } ?? false })?
+            .submenu?.items.first(where: { $0.title == L("Recent") })?.submenu
+        check("recent: the sample is in Open recent until hidden",
+              recentMenu?.items.first?.title == L("SampleItem") && !xp.sampleHidden, "\(recentMenu?.items.map(\.title) ?? [])")
         await reachAndWiki(d, tmp)
         await dedicated(tmp)
 

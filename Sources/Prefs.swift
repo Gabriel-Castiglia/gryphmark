@@ -25,6 +25,8 @@ final class Prefs: ObservableObject {
     @Published var sidebarWidth = 260.0 { didSet { save() } }
     @Published var outlineShare = 0.45 { didSet { save() } }
     @Published var recent: [String] = [] { didSet { save() } }
+    @Published var recentFolders: [String] = [] { didSet { save() } }     // folders opened lately, newest first (6)
+    @Published var sampleHidden = false { didSet { save() } }              // the sample out of File → Open recent
     @Published var folders: [String] = [] { didSet { save() } }
     // The Files panel, as on Windows: pinned folders go first; the rest in the chosen order; each folder a colour.
     @Published var pinned: [String] = [] { didSet { save() } }
@@ -55,6 +57,8 @@ final class Prefs: ObservableObject {
         sidebarWidth = Prefs.clampWidth(d.object(forKey: "SidebarWidth") as? Double ?? 260)
         outlineShare = Prefs.clampShare(d.object(forKey: "OutlineShare") as? Double ?? 0.45)
         recent = d.stringArray(forKey: "Recent") ?? []
+        recentFolders = d.stringArray(forKey: "RecentFolders") ?? []
+        sampleHidden = d.bool(forKey: "SampleHidden")
         folders = d.stringArray(forKey: "Folders") ?? []
         pinned = d.stringArray(forKey: "PinnedFolders") ?? []
         startupFolders = ["restore", "clean", "pinned"].contains(d.string(forKey: "StartupFolders") ?? "") ? d.string(forKey: "StartupFolders")! : "restore"
@@ -68,7 +72,7 @@ final class Prefs: ObservableObject {
         guard persist, !loading else { return }
         let values: [String: Any] = [
             "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "AutoSave": autoSave, "ReadOnly": readOnly,
-            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "Recent": recent, "Folders": folders, "SampleShown": sampleShown,
+            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
             "PinnedFolders": pinned, "StartupFolders": startupFolders, "FolderSort": folderSort, "FolderColors": folderColors,
             "FolderColorMap": folderColorMap,
         ]
