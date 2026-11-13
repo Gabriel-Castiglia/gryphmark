@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.4.1 · GPL-2.0-only
+Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.5.0 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -22,8 +22,9 @@ cual lo muestra GitHub, en claro u oscuro. La interfaz está en español e ingl�
 Cuando otro programa cambia el archivo abierto, por ejemplo un asistente de IA que lo edita, Gryphmark muestra el
 texto nuevo enseguida y te deja donde estabas leyendo, en cualquiera de las vistas. Sigue las distintas formas de
 guardar: escribir encima del archivo, escribir uno nuevo y renombrarlo encima del viejo, o borrarlo y volver a
-escribirlo. Sigue funcionando con la ventana detrás de otras apps, así que el cambio ya está cuando mirás. Si
-tenés cambios sin guardar, pregunta antes de reemplazarlos.
+escribirlo. Sigue funcionando con la ventana detrás de otras apps, así que el cambio ya está cuando mirás. Lo que
+cambió queda marcado en verde unos segundos: los párrafos nuevos o reescritos, y en una lista o una tabla solo el
+punto o la fila que se agregó. Si tenés cambios sin guardar, pregunta antes de reemplazarlos.
 
 ![El editor visual](docs/img/visual-es.png)
 
@@ -73,8 +74,9 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
   documento en la vista GitHub (títulos, listas, tablas y enlaces en texto plano); el archivo Markdown no cambia.
 - Buscar y reemplazar (⌘F, ⌥⌘F, ⌘G), zoom (⌘+, ⌘−, ⌘0), corrector ortográfico, exportar a una página HTML
   autónoma (⌘E), imprimir o guardar como PDF (⌘P).
-- Al guardar se respeta tu formato: los bloques que no tocaste conservan su Markdown original, y el archivo
-  conserva sus fines de línea (LF o CRLF) y su marca de orden de bytes.
+- Al guardar se respeta tu formato: los bloques que no tocaste conservan su Markdown original, de una línea
+  editada cambia solo lo que tocaste, y el archivo conserva sus fines de línea (LF o CRLF) y su marca de orden
+  de bytes.
 - Autoguardado, encendido de fábrica: un archivo con nombre se guarda solo un momento después de que dejás de
   escribir. El interruptor *Autoguardado* de la barra (también Archivo → Autoguardado) lo apaga, y entonces solo
   Guardar (⌘S) escribe el archivo. Nunca escribe encima de un cambio hecho por otro programa: Gryphmark pregunta

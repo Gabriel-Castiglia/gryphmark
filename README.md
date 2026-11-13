@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 1.4.1 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 1.5.0 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -22,8 +22,9 @@ in light or dark. The interface is in English and Spanish.
 When another program changes the open file, such as an AI assistant editing it, Gryphmark shows the new text at
 once and keeps you where you were reading, in every view. It follows the ways programs save: writing over the
 file, writing a new file and renaming it over the old one, or deleting it and writing it again. It keeps running
-while the window is behind other apps, so the change is already there when you look. If you have unsaved
-changes, Gryphmark asks before replacing them.
+while the window is behind other apps, so the change is already there when you look. What changed is marked in
+green for a few seconds: new or rewritten paragraphs, and the single points or rows added to a list or a table. If
+you have unsaved changes, Gryphmark asks before replacing them.
 
 ![The visual editor](docs/img/visual-en.png)
 
@@ -72,8 +73,8 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
   GitHub view (headings, lists, tables and links in plain text); the Markdown file is not changed.
 - Find and replace (⌘F, ⌥⌘F, ⌘G), zoom (⌘+, ⌘−, ⌘0), spell check, export to a self-contained HTML page (⌘E),
   print or save as PDF (⌘P).
-- Saving keeps your formatting: blocks you did not touch keep their original Markdown, and the file keeps its
-  line endings (LF or CRLF) and its byte order mark.
+- Saving keeps your formatting: blocks you did not touch keep their original Markdown, an edited line keeps all of
+  itself but your change, and the file keeps its line endings (LF or CRLF) and its byte order mark.
 - Autosave, on by default: a file with a name saves itself a moment after you stop typing. The *Autosave* switch
   in the toolbar (also File → Autosave) turns it off, and then only Save (⌘S) writes the file. It never writes over
   a change made by another program: Gryphmark asks first, as without autosave.

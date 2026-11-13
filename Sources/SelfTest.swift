@@ -420,6 +420,8 @@ enum SelfTest {
         ok = await wait(3) { await markdown(d).contains("fourth line") }
         let md3 = await markdown(d)
         check("live reload: plain write", ok && !d.model.dirty, md3)
+        let marked = (await d.web.call("return mdApp.changesMarked()") as? Int) ?? 0
+        check("live reload: what another program changed is marked in green", marked > 0, "\(marked) blocks")
         // Several quick saves: the last one is what shows.
         for i in 1 ... 6 { try? Data("# Burst \(i)\n".utf8).write(to: live); try? await Task.sleep(nanoseconds: 20_000_000) }
         ok = await wait(3) { await markdown(d).contains("Burst 6") }
