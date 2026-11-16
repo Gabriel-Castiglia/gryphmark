@@ -85,6 +85,29 @@ enum Wiki {
         return out
     }
 
+    /// The file a ![[name]] picture points to: that file name (or the end of that path) in the folders searched for
+    /// [[name]], the nearest to the document first; nil when there is none.
+    static func findFile(_ name: String, from docFolder: URL?, panel: [String]) -> URL? {
+        let want = name.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let file = (want as NSString).lastPathComponent.lowercased()
+        guard !file.isEmpty else { return nil }
+        let tail = "/" + want.lowercased()
+        var hits: [URL] = []
+        let fm = FileManager.default
+        for root in searched(docFolder: docFolder, panel: panel) {
+            guard let e = fm.enumerator(at: root, includingPropertiesForKeys: nil,
+                                        options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
+            for case let u as URL in e {
+                if e.level > 12 { e.skipDescendants(); continue }
+                if u.lastPathComponent.lowercased() == file, u.standardizedFileURL.path.lowercased().hasSuffix(tail) { hits.append(u.standardizedFileURL) }
+                if hits.count > 50 { break }
+            }
+        }
+        guard let dir = docFolder?.standardizedFileURL.pathComponents, hits.count > 1 else { return hits.first }
+        func shared(_ u: URL) -> Int { zip(u.deletingLastPathComponent().pathComponents, dir).prefix { $0 == $1 }.count }
+        return hits.max { (shared($0), -$0.pathComponents.count) < (shared($1), -$1.pathComponents.count) }
+    }
+
     /// The panel folders plus the document's own folder (each folder searched once).
     private static func searched(docFolder: URL?, panel: [String]) -> [URL] {
         var roots = panel.map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL }

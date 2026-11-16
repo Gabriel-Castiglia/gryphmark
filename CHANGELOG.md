@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.0.0 — 2026-11-16
+
+macOS and Windows now share one version number: this is 2.0.0 on both.
+
+- Pictures work in more places. In the GitHub view a picture can be given by an absolute path (also
+  outside the open folders), a `file:` address, with spaces in its path (`![a](my picture.png)`), as
+  `![[picture.png]]` or `![[picture.png|300]]` (Obsidian; a name not beside the document is looked for in the open
+  folders), and with a size as `![alt|300](a.png)`. A picture that cannot be found is a dashed box with its name
+  instead of a broken icon, and a click on a picture opens it in Preview. What the page may load: the document's
+  folder, the folders of the Files panel when the document is in one of them, and pictures from anywhere; nothing else.
+- Tables fit the column. A long path, address or piece of code inside a cell breaks where it has to, so the
+  columns share the width instead of the table hiding behind a scrollbar; plain words stay whole. A table of eight
+  columns or more takes less padding in its cells. Measured on 58 notes with such tables: in a 1200 px window, 6
+  scrolled before and none now; in an 800 px one, 8 before and 3 now.
+- Text width, in View → Text width: *Normal* (980 px, GitHub's column, as before), *Wide* (1280 px),
+  *Very wide* (1600 px) or *The whole window*, for the Visual and GitHub views. Printing and exported pages keep
+  GitHub's width.
+- Three layouts for the sidebar, in View → Layout: *Files above Contents* (as before), *Files and Contents
+  side by side* and *Contents on the right of the text*. Each layout keeps its own widths.
+- Rename and move from the Files panel: right-click → *Rename…*; with the tree unlocked (the padlock in the panel
+  header) files and folders dragged onto a folder are moved there on disk. Two arrows in the header undo and redo
+  renames and moves. The open document follows its file, saved first if it had changes, and so does *File → Open
+  recent*. A name already taken, a folder into itself and the open folders themselves are refused.
+- Properties at the top of a file (front matter, between two `---` lines) are a grey folded box in the Visual
+  view and a table under a folded *Properties* line in the GitHub view, saved exactly as written; `+++` (TOML) blocks
+  too. A block counts only when it closes and holds a key: a first `---` that never closes, or a file that starts
+  with a rule, keeps its text in sight in both views. The Contents list skips the block and keeps `IMG_1915` as
+  written.
+- Pasting inside a code block no longer splits it: whatever is pasted there goes in as plain text.
+
 ## 1.6.0 — 2026-11-14
 
 - **Reading at the end, you follow the end**: when another program adds text at the bottom of the file and you were

@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 1.6.0 · GPL-2.0-only
+Gabriel Castiglia · 10 de noviembre de 2026 · versión 2.0.0 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -66,6 +66,21 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - La barra lateral (⇧⌘E): los archivos Markdown de una o más carpetas (Archivo → Abrir carpeta…) y el índice del
   documento abierto; clic en un título para ir a él. El archivo abierto se resalta y sus carpetas se abren. Los
   divisores se arrastran para cambiar el ancho de la barra y el lugar de Archivos y Contenido; cada ventana los recuerda.
+  Ver → Disposición pone Archivos e índice lado a lado, o el índice a la derecha del texto, y cada disposición
+  recuerda sus anchos. Ver → Ancho del texto ensancha la columna de las vistas Visual y GitHub (Normal es la de GitHub, 980 px).
+- Cambiar de nombre y mover archivos: clic derecho en un archivo o una carpeta del panel → *Cambiar nombre…*. Para
+  mover, un clic en el candado de la cabecera del panel desbloquea el árbol, y los archivos y carpetas se arrastran
+  sobre una carpeta; otro clic lo vuelve a bloquear. Las dos flechas de la cabecera deshacen y rehacen cada cambio de
+  nombre y cada movimiento. Todo pasa en el disco; el documento abierto sigue a su archivo, y antes se guarda si
+  tenía cambios.
+- Imágenes: al lado del documento o en otra carpeta (`../img/a.png`), con una ruta absoluta o una
+  dirección `file:`, con espacios en la ruta, y como `![[imagen.png]]` o `![[imagen.png|300]]`, que se buscan en
+  las carpetas abiertas. `![alt|300](a.png)` fija el ancho. Una imagen que no se encuentra muestra su nombre en un
+  recuadro punteado; un clic en una imagen la abre en Vista Previa.
+- Las tablas entran en la columna: una ruta o un código largo dentro de una celda se corta donde hace falta, en vez
+  de mandar la tabla detrás de una barra de desplazamiento.
+- Las propiedades al principio de un archivo (front matter, entre dos líneas `---`) se ven como un recuadro gris
+  plegado en la vista Visual y como una tabla en la vista GitHub, y se guardan tal como estaban escritas.
 - Las carpetas del panel de archivos: cada una tiene su color (tonos del color del tema, multicolor o ninguno, o uno
   elegido a mano) y se puede fijar arriba, subir, bajar o cerrar (clic derecho en su nombre). El botón ⋯ las ordena
   (orden de apertura, por nombre o modificadas recientemente primero) y define qué se abre al iniciar: las carpetas de
@@ -101,8 +116,8 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 Un documento no puede ejecutar nada. El HTML que trae un archivo Markdown se limpia con DOMPurify antes de que la
 vista GitHub o una exportación lo muestren. Los enlaces solo abren páginas web, correo, otros archivos Markdown
 (en Gryphmark), imágenes y PDF; un enlace a cualquier otro archivo, como un programa o un script, solo lo muestra
-en el Finder. La página del editor no llega a nada más que sus propios archivos y la carpeta del documento
-abierto o, si el documento está dentro de una carpeta del panel de archivos, las carpetas del panel.
+en el Finder. La página del editor no llega a nada más que sus propios archivos, la carpeta del documento
+abierto (o, si el documento está dentro de una carpeta del panel de archivos, las carpetas del panel) y las imágenes.
 
 ## Compilar
 

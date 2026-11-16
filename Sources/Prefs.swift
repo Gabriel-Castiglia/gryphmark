@@ -24,6 +24,16 @@ final class Prefs: ObservableObject {
     // Width of the sidebar and the share of its height that Contents takes (the rest is Files); set when a divider is let go.
     @Published var sidebarWidth = 260.0 { didSet { save() } }
     @Published var outlineShare = 0.45 { didSet { save() } }
+    // View → Layout: "stacked" (Files above Contents, as before), "columns" (Files | Contents side by side in the
+    // sidebar) or "right" (Contents on the right of the text). Each layout keeps its own widths.
+    @Published var sideLayout = "stacked" { didSet { save() } }
+    @Published var sidebarWidthColumns = 520.0 { didSet { save() } }
+    @Published var outlineShareColumns = 0.45 { didSet { save() } }   // part of that width for Contents
+    @Published var outlineWidthRight = 260.0 { didSet { save() } }
+    // View → Text width: the column of the Visual and GitHub views in points (980 = GitHub's), 0 = the whole window.
+    @Published var textWidth = 980 { didSet { save() } }
+    // The Files tree: locked, nothing is dragged; unlocked, files and folders are moved on disk by dragging them.
+    @Published var treeLocked = true { didSet { save() } }
     @Published var recent: [String] = [] { didSet { save() } }
     @Published var recentFolders: [String] = [] { didSet { save() } }     // folders opened lately, newest first (6)
     @Published var sampleHidden = false { didSet { save() } }              // the sample out of File → Open recent
@@ -56,6 +66,12 @@ final class Prefs: ObservableObject {
         sidebar = d.object(forKey: "Sidebar") as? Bool ?? true
         sidebarWidth = Prefs.clampWidth(d.object(forKey: "SidebarWidth") as? Double ?? 260)
         outlineShare = Prefs.clampShare(d.object(forKey: "OutlineShare") as? Double ?? 0.45)
+        sideLayout = ["stacked", "columns", "right"].contains(d.string(forKey: "SideLayout") ?? "") ? d.string(forKey: "SideLayout")! : "stacked"
+        sidebarWidthColumns = Prefs.clampColumns(d.object(forKey: "SidebarWidthColumns") as? Double ?? 520)
+        outlineShareColumns = Prefs.clampShare(d.object(forKey: "OutlineShareColumns") as? Double ?? 0.45)
+        outlineWidthRight = Prefs.clampWidth(d.object(forKey: "OutlineWidthRight") as? Double ?? 260)
+        textWidth = [980, 1280, 1600, 0].contains(d.object(forKey: "TextWidth") as? Int ?? -1) ? d.integer(forKey: "TextWidth") : 980
+        treeLocked = d.object(forKey: "TreeLocked") as? Bool ?? true
         recent = d.stringArray(forKey: "Recent") ?? []
         recentFolders = d.stringArray(forKey: "RecentFolders") ?? []
         sampleHidden = d.bool(forKey: "SampleHidden")
@@ -72,7 +88,8 @@ final class Prefs: ObservableObject {
         guard persist, !loading else { return }
         let values: [String: Any] = [
             "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "AutoSave": autoSave, "ReadOnly": readOnly,
-            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
+            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "SideLayout": sideLayout, "SidebarWidthColumns": sidebarWidthColumns,
+            "OutlineShareColumns": outlineShareColumns, "OutlineWidthRight": outlineWidthRight, "TextWidth": textWidth, "TreeLocked": treeLocked, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
             "PinnedFolders": pinned, "StartupFolders": startupFolders, "FolderSort": folderSort, "FolderColors": folderColors,
             "FolderColorMap": folderColorMap,
         ]
@@ -82,6 +99,8 @@ final class Prefs: ObservableObject {
     static let sidebarRange = 180.0...700.0
     static func clampWidth(_ w: Double) -> Double { min(max(w, sidebarRange.lowerBound), sidebarRange.upperBound) }
     static func clampShare(_ s: Double) -> Double { min(max(s, 0.1), 0.9) }
+    static let columnsRange = 360.0...1000.0       // the sidebar with Files and Contents side by side
+    static func clampColumns(_ w: Double) -> Double { min(max(w, columnsRange.lowerBound), columnsRange.upperBound) }
 
     /// The first time, Spanish if the Mac speaks it, English otherwise.
     static var macLanguage: String {
@@ -194,6 +213,19 @@ final class Prefs: ObservableObject {
         var r = recent.filter { $0 != path }
         r.insert(path, at: 0)
         recent = Array(r.prefix(12))
+    }
+
+    /// File → Open recent and the recent folders follow a rename or a move from the Files panel (FileOps).
+    func follow(from: String, to: String, isDir: Bool) {
+        func map(_ p: String) -> String {
+            if p.lowercased() == from.lowercased() { return to }
+            if isDir, p.lowercased().hasPrefix(from.lowercased() + "/") { return to + p.dropFirst(from.count) }
+            return p
+        }
+        func dedup(_ a: [String]) -> [String] { var seen = Set<String>(); return a.filter { seen.insert($0.lowercased()).inserted } }
+        let r = dedup(recent.map(map)), f = dedup(recentFolders.map(map))
+        if r != recent { recent = r }
+        if f != recentFolders { recentFolders = f }
     }
 
     // MARK: appearance

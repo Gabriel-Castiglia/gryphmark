@@ -6,7 +6,7 @@
 // A document must never be able to run a program. The rules are those of the Windows version:
 //   - a Markdown file the document may reach opens in Gryphmark (its folder, or every folder of
 //     the Files panel when the document is inside one of them: Wiki.reach);
-//   - a picture or a PDF it may reach opens in its viewer;
+//   - a picture or a PDF it may reach opens in its viewer (a picture from anywhere, as the page may show it);
 //   - any other file it may reach is only shown in the Finder;
 //   - outside those folders, only web pages (http, https) and e-mail (mailto) open;
 //   - everything else (file:, javascript:, app schemes, ...) is ignored.
@@ -24,10 +24,13 @@ enum LinkAction: Equatable {
 enum LinkPolicy {
     static let markdown: Set<String> = ["md", "markdown", "mdown", "mkd", "txt"]
     static let viewable: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "pdf"]
+    static let pictures: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "ico", "heic", "tiff", "tif"]
 
     static func decide(_ href: String, reach: [URL]) -> LinkAction {
         guard let url = URL(string: href), let scheme = url.scheme?.lowercased() else { return .ignore }
         if scheme == Schemes.doc {
+            if let file = Schemes.file(of: url), pictures.contains(file.pathExtension.lowercased()),
+               FileManager.default.fileExists(atPath: file.path) { return .openViewer(file) }
             guard let file = Schemes.file(of: url), Wiki.inside(file, any: reach) else { return .ignore }
             var isDir: ObjCBool = false
             guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isDir) else { return .ignore }

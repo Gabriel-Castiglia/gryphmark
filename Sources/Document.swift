@@ -100,6 +100,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
                 await web.call("mdApp.init(lang, theme, mode, spell, locked, true)", [
                     "lang": prefs.lang, "theme": prefs.dark ? "dark" : "light", "mode": prefs.mode,
                     "spell": prefs.spell, "locked": prefs.readOnly])
+                await web.call("mdApp.setWidth(w)", ["w": prefs.textWidth])
                 model.ready = true
                 lastEditSeq = 0       // a new page counts its edits from zero
                 if let p = pendingOpen { pendingOpen = nil; await load(p) }
@@ -126,6 +127,15 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let found = Wiki.exist(names, from: dir, panel: panel)
                 DispatchQueue.main.async { Task { @MainActor in await self?.web.call("mdApp.wikiState(s)", ["s": found]) } }
+            }
+        case "findfile":
+            let name = (m["name"] as? String) ?? ""
+            let dir = model.path?.deletingLastPathComponent(), panel = prefs.folders
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let f = Wiki.findFile(name, from: dir, panel: panel)
+                DispatchQueue.main.async { Task { @MainActor in
+                    await self?.web.call("mdApp.fileFound(n, u)", ["n": name, "u": f.map { Schemes.address(of: $0) as Any } ?? NSNull()])
+                } }
             }
         case "export": writeExport(m)
         case "printReady": printNow()
@@ -263,6 +273,18 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         diskText = nil
         watch(nil)
         model.words = (await web.call("return mdApp.words()") as? Int) ?? 0
+        updateTitle()
+    }
+
+    /// The open file was renamed or moved from the Files panel (FileOps): the window follows it.
+    @MainActor
+    func relocate(to url: URL) async {
+        let url = url.standardizedFileURL
+        model.path = url
+        applyReach(url.deletingLastPathComponent())
+        await web.call("mdApp.setBase(b)", ["b": Schemes.docBase(for: url.deletingLastPathComponent())])
+        watch(url)
+        prefs.addRecent(url.path)
         updateTitle()
     }
 
@@ -488,8 +510,18 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     // MARK: links
 
+    /// What the self-test's links asked for outside Gryphmark (a Finder window, a viewer, a web page): recorded and
+    /// never done. 16-nov-2026: the hostile document's clicked links revealed the temporary folder, and a Finder
+    /// window called "T" stayed open after every run.
+    static var heldOutside: [LinkAction] = []
+    static let inSelfTest = CommandLine.arguments.contains("--self-test")
+
     func openLink(_ href: String) {
-        switch LinkPolicy.decide(href, reach: reach) {
+        let action = LinkPolicy.decide(href, reach: reach)
+        if DocWindow.inSelfTest, action != .ignore, { if case .openDocument = action { return false }; return true }() {
+            DocWindow.heldOutside.append(action); return
+        }
+        switch action {
         case .openDocument(let u): (NSApp.delegate as? AppDelegate)?.open(u, from: self)
         case .openViewer(let u): NSWorkspace.shared.open(u)
         case .reveal(let u): NSWorkspace.shared.activateFileViewerSelecting([u])

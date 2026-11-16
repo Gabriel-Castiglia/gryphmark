@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 1.6.0 · GPL-2.0-only
+Gabriel Castiglia · November 10, 2026 · version 2.0.0 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -65,6 +65,20 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - The sidebar (⇧⌘E): the Markdown files of one or more folders (File → Open folder…) and the contents of the
   open document; click a heading to go to it. The open file is highlighted and its folders open. Drag the
   dividers to change the width of the sidebar and the room of Files and Contents; each window keeps them.
+  View → Layout puts Files and Contents side by side, or Contents on the right of the text, and each layout keeps
+  its own widths. View → Text width widens the column of the Visual and GitHub views (Normal is GitHub's 980 px).
+- Renaming and moving files: right-click a file or folder in the Files panel → *Rename…*. To move, click the padlock
+  in the panel header to unlock the tree and drag files and folders onto a folder; click it again to lock it. The
+  two arrows of the header undo and redo each rename and move. All of it happens on disk; the open document follows
+  its file, saved first if it had changes.
+- Pictures: beside the document or in another folder (`../img/a.png`), by an absolute path or a
+  `file:` address, with spaces in the path, and as `![[picture.png]]` or `![[picture.png|300]]`, looked for in the
+  open folders. `![alt|300](a.png)` sets the width. A picture that is not found shows its name in a dashed box; a
+  click on a picture opens it in Preview.
+- Tables fit the column: a long path or piece of code in a cell breaks where it has to instead of pushing the table
+  behind a scrollbar.
+- Properties at the top of a file (front matter, between two `---` lines) show as a grey folded box in the Visual
+  view and as a table in the GitHub view, and are saved exactly as written.
 - The folders of the Files panel: each one has its own colour (tones of the theme colour, multicolour or none, or one
   chosen by hand), and can be pinned to the top, moved up and down or closed (right-click its name). The ⋯ button
   orders them (order opened, by name or recently modified first) and sets what opens at start: the folders of the
@@ -98,8 +112,8 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 A document cannot run anything. The HTML inside a Markdown file is cleaned with DOMPurify before the GitHub view
 or an export shows it. Links open only web pages, e-mail, other Markdown files (in Gryphmark), pictures and PDFs;
 a link to any other file, such as a program or a script, only shows it in the Finder. The page of the editor
-reaches nothing but its own files and the folder of the open document, or, for a document inside a folder of the
-Files panel, the folders of the panel.
+reaches nothing but its own files, the folder of the open document (or, for a document inside a folder of the
+Files panel, the folders of the panel) and pictures.
 
 ## Building from source
 

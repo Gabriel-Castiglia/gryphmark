@@ -356,6 +356,10 @@ enum SelfTest {
         try? await Task.sleep(nanoseconds: 300_000_000)
         let afterClick = await d.web.call("return window.__pwned === undefined ? 0 : window.__pwned") as? Int ?? -1
         check("hostile: clicked links run nothing", afterClick == 0, "marker \(afterClick)")
+        // what they asked outside Gryphmark was held, not done: no Finder window is left open by the self-test
+        check("hostile: links to the Finder or other apps are held during the self-test",
+              !DocWindow.heldOutside.isEmpty && DocWindow.heldOutside.allSatisfy { if case .external = $0 { return true }; if case .reveal = $0 { return true }; if case .openViewer = $0 { return true }; return false },
+              "\(DocWindow.heldOutside)")
         d.setMode("visual")
 
         // Link rules.
@@ -457,6 +461,7 @@ enum SelfTest {
         check("recent: the sample is in Open recent until hidden",
               recentMenu?.items.first?.title == L("SampleItem") && !xp.sampleHidden, "\(recentMenu?.items.map(\.title) ?? [])")
         await reachAndWiki(d, tmp)
+        await picturesFilesLayouts(d, tmp)
         await dedicated(tmp)
 
         // Export.
@@ -546,6 +551,97 @@ enum SelfTest {
         d.model.dirty = false
         await d.load(home)
         Prefs.shared.folders = saved
+    }
+
+    // 2.0.0, as on Windows. Pictures: beside the document, in ../, by an absolute path and a file: address outside
+    // every folder, a ![[name]] found in another folder of the panel, and a missing one boxed; outside the reach only
+    // pictures are served or opened. The tree: rename, move, undo and redo on disk, an unsaved edit saved first, a
+    // folder renamed only in case, names refused, the open document and Open recent following. The three layouts.
+    @MainActor
+    private static func picturesFilesLayouts(_ d: DocWindow, _ tmp: URL) async {
+        let fm = FileManager.default, prefs = Prefs.shared, ops = FileOps.shared
+        let root = tmp.appendingPathComponent("pics").standardizedFileURL, docDir = root.appendingPathComponent("notes/doc")
+        try? fm.createDirectory(at: docDir, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: root.appendingPathComponent("att"), withIntermediateDirectories: true)
+        let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGNgYGD4z8DAwMDAAAAMAAH0xGq5AAAAAElFTkSuQmCC")!
+        for p in ["notes/doc/here.png", "notes/up one.png", "att/far.png"] { try? png.write(to: root.appendingPathComponent(p)) }
+        let outside = tmp.appendingPathComponent("outside dir/out.png").standardizedFileURL
+        try? fm.createDirectory(at: outside.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? png.write(to: outside)
+        let doc = docDir.appendingPathComponent("pics.md")
+        let fileAddress = "file://" + (outside.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? outside.path)
+        try? "# P\n\n![a](here.png)\n\n![b](<../up one.png>)\n\n![c](\(outside.path))\n\n![d](\(fileAddress))\n\n![[far.png]]\n\n![gone](nothing.png)\n"
+            .write(to: doc, atomically: true, encoding: .utf8)
+        let saved = prefs.folders
+        prefs.folders = [root.path]
+        await d.load(doc)
+        d.setMode("preview")
+        let shown = await wait(6) {
+            let loaded = (await d.web.call("return Array.from(document.querySelectorAll('#preview img')).filter(i => i.complete && i.naturalWidth === 2).length") as? Int) ?? 0
+            let boxed = (await d.web.call("return document.querySelectorAll('#preview .gm-img-missing').length") as? Int) ?? 0
+            return loaded == 5 && boxed == 1
+        }
+        let seen = (await d.web.call("return Array.from(document.querySelectorAll('#preview img, #preview .gm-img-missing')).map(i => (i.getAttribute('src') || i.title) + ':' + (i.naturalWidth ?? '-')).join(' ')") as? String) ?? ""
+        check("pictures: beside, in ../, by absolute path and a file: address, ![[name]] in another folder; a missing one boxed", shown, seen)
+        check("pictures: outside the reach only pictures are served or opened",
+              LinkPolicy.decide(Schemes.address(of: outside), reach: d.reach) == .openViewer(outside)
+                  && LinkPolicy.decide(Schemes.address(of: tmp.appendingPathComponent("x.md")), reach: d.reach) == .ignore,
+              "\(LinkPolicy.decide(Schemes.address(of: outside), reach: d.reach))")
+        d.setMode("visual")
+
+        // the tree's file operations
+        let n1 = root.appendingPathComponent("one.md"), n2 = root.appendingPathComponent("two.md")
+        let sub = root.appendingPathComponent("sub"), n3 = sub.appendingPathComponent("two.md")
+        try? "# One\n".write(to: n1, atomically: true, encoding: .utf8)
+        try? fm.createDirectory(at: sub, withIntermediateDirectories: true)
+        await d.load(n1)
+        var good = await ops.move(n1, to: n2, doc: d)
+        check("files: rename on disk, the open document and Open recent follow",
+              good && fm.fileExists(atPath: n2.path) && !fm.fileExists(atPath: n1.path) && d.model.path == n2
+                  && prefs.recent.first == n2.path && !prefs.recent.contains(n1.path),
+              "\(d.model.path?.path ?? "-") \(prefs.recent.prefix(3))")
+        check("files: drop rules", FileOps.canDrop(n2, into: sub) && !FileOps.canDrop(n2, into: root) && !FileOps.canDrop(sub, into: sub)
+              && !FileOps.canDrop(root, into: sub) && FileOps.isRoot(root))
+        good = await ops.move(n2, to: n3, doc: d)
+        check("files: a move into a folder, the document follows", good && fm.fileExists(atPath: n3.path) && d.model.path == n3, d.model.path?.path ?? "-")
+        await d.web.call("mdApp.focus(); mdApp.insertText('typed ')")
+        _ = await wait(2) { d.model.dirty }
+        await ops.undo(doc: d)
+        let u1 = fm.fileExists(atPath: n2.path) && d.model.path == n2 && ((try? String(contentsOf: n2, encoding: .utf8)) ?? "").contains("typed")
+        await ops.undo(doc: d)
+        let u2 = fm.fileExists(atPath: n1.path) && d.model.path == n1 && ops.undoStack.isEmpty && ops.redoStack.count == 2
+        check("files: undo twice goes back, an unsaved edit saved first", u1 && u2, "\(u1) \(u2) \(d.model.path?.path ?? "-")")
+        await ops.redo(doc: d); await ops.redo(doc: d)
+        check("files: redo twice comes back", fm.fileExists(atPath: n3.path) && d.model.path == n3 && ops.redoStack.isEmpty, d.model.path?.path ?? "-")
+        let cased = root.appendingPathComponent("Sub")
+        good = await ops.move(sub, to: cased, doc: d)
+        let names = (try? fm.contentsOfDirectory(atPath: root.path)) ?? []
+        check("files: a folder renamed only in case, with the open file inside",
+              good && names.contains("Sub") && !names.contains("sub") && d.model.path?.path.hasSuffix("/Sub/two.md") == true,
+              "\(names) \(d.model.path?.path ?? "-")")
+        let clash = await ops.move(cased.appendingPathComponent("two.md"), to: doc, doc: d)
+        check("files: two items cannot share a name; names macOS refuses are refused", !clash && fm.fileExists(atPath: doc.path)
+              && FileOps.validName("a.md") && !FileOps.validName("a/b") && !FileOps.validName("..") && !FileOps.validName(" ") && !FileOps.validName("a:b"))
+        d.model.dirty = false
+
+        // the three layouts, in a window wide enough for each
+        if let w = d.window {
+            w.setContentSize(NSSize(width: 1400, height: 800))
+            prefs.sidebar = true
+            func page() -> NSRect { d.web.view.convert(d.web.view.bounds, to: nil) }
+            let cw = w.contentView?.bounds.width ?? 0
+            prefs.sideLayout = "right"
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let r = page()
+            check("layout: Contents on the right of the text", r.minX > 150 && r.maxX < cw - 150, "page \(r) in \(cw)")
+            prefs.sideLayout = "columns"
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            let c = page()
+            check("layout: Files and Contents side by side, the page after both", c.minX >= Prefs.columnsRange.lowerBound && c.maxX > cw - 2, "page \(c) in \(cw)")
+            prefs.sideLayout = "stacked"
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        prefs.folders = saved
     }
 
     // A dedicated instance made from this app into a temporary Applications folder.

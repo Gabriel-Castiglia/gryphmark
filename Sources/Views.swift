@@ -5,6 +5,7 @@
 
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 struct NSHostingViewFor {
@@ -32,23 +33,31 @@ struct RootView: View {
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
     @StateObject private var drag = DragState()     // the sidebar divider while it is dragged
+    @StateObject private var dragRight = DragState()   // the divider of Contents on the right of the text
 
     var body: some View {
         VStack(spacing: 0) {
             ToolbarView(doc: doc, prefs: prefs)
             Divider()
             GeometryReader { geo in
+                // View → Layout: stacked (Files above Contents), columns (side by side in the sidebar) or right
+                // (Contents on the right of the text). Each panel keeps its width (dragged, and remembered by each
+                // instance); the document never gets narrower than 380, so a narrow window takes the room from them.
+                let cols = prefs.sideLayout == "columns", right = prefs.sidebar && prefs.sideLayout == "right"
+                let rightW = right ? min(dragRight.live ?? prefs.outlineWidthRight,
+                                         max(Prefs.sidebarRange.lowerBound, geo.size.width - 380 - Prefs.sidebarRange.lowerBound - 2 * SplitHandle.thickness)) : 0
                 HStack(spacing: 0) {
                     if prefs.sidebar {
-                        // The sidebar keeps its width (dragged, and remembered by each instance); the document never
-                        // gets narrower than 380, so a narrow window takes the room from the sidebar.
-                        let width = min(drag.live ?? prefs.sidebarWidth, max(Prefs.sidebarRange.lowerBound, geo.size.width - 380 - SplitHandle.thickness))
-                        Sidebar(doc: doc, model: model, prefs: prefs).frame(width: width).frame(maxHeight: .infinity)
+                        let range = cols ? Prefs.columnsRange : Prefs.sidebarRange
+                        let room = geo.size.width - 380 - SplitHandle.thickness - (right ? rightW + SplitHandle.thickness : 0)
+                        let width = min(drag.live ?? (cols ? prefs.sidebarWidthColumns : prefs.sidebarWidth), max(range.lowerBound, room))
+                        Sidebar(doc: doc, model: model, prefs: prefs, part: cols ? .columns : right ? .files : .stacked)
+                            .frame(width: width).frame(maxHeight: .infinity)
                         SplitHandle(vertical: true) { moved in
                             if drag.from == nil { drag.from = width }
-                            drag.live = Prefs.clampWidth(drag.from! + moved)
+                            drag.live = cols ? Prefs.clampColumns(drag.from! + moved) : Prefs.clampWidth(drag.from! + moved)
                         } ended: {
-                            if let w = drag.live { prefs.sidebarWidth = w }
+                            if let w = drag.live { if cols { prefs.sidebarWidthColumns = w } else { prefs.sidebarWidth = w } }
                             drag.live = nil; drag.from = nil
                         }
                     }
@@ -59,6 +68,16 @@ struct RootView: View {
                         StatusLine(model: model, prefs: prefs)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if right {
+                        SplitHandle(vertical: true, id: "rightDivider") { moved in
+                            if dragRight.from == nil { dragRight.from = rightW }
+                            dragRight.live = Prefs.clampWidth(dragRight.from! - moved)
+                        } ended: {
+                            if let w = dragRight.live { prefs.outlineWidthRight = w }
+                            dragRight.live = nil; dragRight.from = nil
+                        }
+                        Sidebar(doc: doc, model: model, prefs: prefs, part: .outline).frame(width: rightW).frame(maxHeight: .infinity)
+                    }
                 }
             }
         }
@@ -84,6 +103,7 @@ final class DragState: ObservableObject {
 struct SplitHandle: View {
     static let thickness: CGFloat = 5
     let vertical: Bool                    // true: a vertical line, dragged left and right
+    var id: String? = nil                 // its accessibility name (the self-test finds it by this)
     let moved: (Double) -> Void
     let ended: () -> Void
     @StateObject private var hover = DragState()    // hover.hovering: the resize cursor is pushed
@@ -104,7 +124,7 @@ struct SplitHandle: View {
         .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { moved(Double(vertical ? $0.translation.width : $0.translation.height)) }
             .onEnded { _ in ended() })
-        .accessibilityIdentifier(vertical ? "sidebarDivider" : "outlineDivider")
+        .accessibilityIdentifier(id ?? (vertical ? "sidebarDivider" : "outlineDivider"))
     }
 }
 
@@ -273,14 +293,49 @@ final class TreeState: ObservableObject {
     static func canonical(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
 }
 
+/// What a Sidebar shows: both panes stacked or side by side, or one of them (the layout "right" puts Contents on
+/// the other side of the text).
+enum SidebarPart { case stacked, columns, files, outline }
+
 struct Sidebar: View {
     let doc: DocWindow
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
+    var part: SidebarPart = .stacked
     @StateObject private var tree = TreeState()
     @StateObject private var drag = DragState()     // the divider between Files and Contents while it is dragged
+    @ObservedObject private var ops = FileOps.shared
 
     var body: some View {
+        switch part {
+        case .files: files
+        case .outline: outline
+        case .columns: sideBySide
+        case .stacked: stacked
+        }
+    }
+
+    // Files | Contents; the divider between them is dragged, and each instance keeps the share.
+    private var sideBySide: some View {
+        GeometryReader { geo in
+            let usable = max(1, Double(geo.size.width - SplitHandle.thickness))
+            let share = drag.live ?? prefs.outlineShareColumns
+            let outlineWidth = (usable * share).rounded()
+            HStack(spacing: 0) {
+                files.frame(width: usable - outlineWidth).clipped()
+                SplitHandle(vertical: true, id: "panesDivider") { moved in
+                    if drag.from == nil { drag.from = share }
+                    drag.live = Prefs.clampShare(drag.from! - moved / usable)
+                } ended: {
+                    if let v = drag.live { prefs.outlineShareColumns = v }
+                    drag.live = nil; drag.from = nil
+                }
+                outline.frame(width: outlineWidth).clipped()
+            }
+        }
+    }
+
+    private var stacked: some View {
         // Files above, Contents below; the divider between them is dragged, and each instance keeps the share.
         GeometryReader { geo in
             let usable = max(1, Double(geo.size.height - SplitHandle.thickness))
@@ -305,6 +360,16 @@ struct Sidebar: View {
             HStack {
                 Text(L("FilesTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 Spacer()
+                // renames and moves of the tree: undo, redo, and the padlock that allows dragging (FileOps)
+                Button { Task { await ops.undo(doc: doc) } } label: { Image(systemName: "arrow.uturn.backward") }
+                    .buttonStyle(.borderless).disabled(ops.undoStack.isEmpty)
+                    .help(ops.undoStack.last.map { L("FileUndoTip", FileOps.describe($0)) } ?? L("FileUndoNone"))
+                Button { Task { await ops.redo(doc: doc) } } label: { Image(systemName: "arrow.uturn.forward") }
+                    .buttonStyle(.borderless).disabled(ops.redoStack.isEmpty)
+                    .help(ops.redoStack.last.map { L("FileRedoTip", FileOps.describe($0)) } ?? L("FileRedoNone"))
+                Button { prefs.treeLocked.toggle() } label: { Image(systemName: prefs.treeLocked ? "lock" : "lock.open") }
+                    .buttonStyle(.borderless).help(L(prefs.treeLocked ? "TreeLockedTip" : "TreeUnlockedTip"))
+                    .accessibilityIdentifier("treeLock")
                 Button { tree.open = [] } label: { Image(systemName: "chevron.up.chevron.down") }
                     .buttonStyle(.borderless).help(L("CollapseAll"))
                 Button { tree.tick += 1 } label: { Image(systemName: "arrow.clockwise") }
@@ -341,6 +406,7 @@ struct Sidebar: View {
                     .onAppear { show(model.path, proxy) }
                     .onChange(of: model.path) { _, path in show(path, proxy) }
                     .onChange(of: prefs.folders) { _, _ in show(model.path, proxy) }
+                    .onChange(of: ops.generation) { _, _ in tree.tick += 1; show(model.path, proxy) }
                 }
             }
         }
@@ -425,6 +491,7 @@ struct FolderHeader: View {
         .padding(.horizontal, 6).padding(.vertical, 3)
         .background(RoundedRectangle(cornerRadius: 5).fill(tint?.fill ?? Color.clear))
         .contentShape(Rectangle())
+        .onDrop(of: [.plainText], isTargeted: nil) { FileOps.shared.drop($0, into: url, doc: doc) }
         .contextMenu {
             Button(L(prefs.isPinned(dir) ? "FolderUnpin" : "FolderPin")) { prefs.togglePin(dir) }
             Button(L("FolderCloseOne")) { prefs.closeFolder(dir) }
@@ -512,6 +579,8 @@ struct FileRow: View {
     let current: URL?
     let highlight: Color
     @ObservedObject var tree: TreeState
+    @ObservedObject private var prefs = Prefs.shared
+    @StateObject private var drop = DragState()      // hovering: something of the tree is dragged over this row
 
     var body: some View {
         // The open file stands out as a selected row does: a filled band in the highlight colour.
@@ -520,10 +589,15 @@ struct FileRow: View {
             .fontWeight(isCurrent ? .semibold : .regular)
             .padding(.vertical, 2).padding(.horizontal, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 5).fill(isCurrent ? highlight.opacity(0.3) : .clear))
+            .background(RoundedRectangle(cornerRadius: 5).fill(isCurrent ? highlight.opacity(0.3) : drop.hovering ? highlight.opacity(0.18) : .clear))
             .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .contentShape(Rectangle())
             .onTapGesture { if !node.isFolder { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) } }
+            .modifier(TreeDragSource(url: node.url, enabled: !prefs.treeLocked && !FileOps.isRoot(node.url)))
+            // a drop goes into this folder, or into the folder of this file
+            .onDrop(of: [.plainText], isTargeted: Binding(get: { drop.hovering }, set: { drop.hovering = $0 && !prefs.treeLocked })) {
+                FileOps.shared.drop($0, into: node.isFolder ? node.url : node.url.deletingLastPathComponent(), doc: doc)
+            }
             .contextMenu {
                 if !node.isFolder {
                     Button(L("FileOpen")) { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) }
@@ -535,6 +609,7 @@ struct FileRow: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(node.url.path, forType: .string)
                 }
+                if !FileOps.isRoot(node.url) { Button(L("Rename")) { FileOps.shared.rename(node.url, doc: doc) } }
                 if !node.isFolder {
                     Divider()
                     Button(L("ConvertTxt")) { (NSApp.delegate as? AppDelegate)?.convertToText(node.url, from: doc) }
@@ -543,6 +618,15 @@ struct FileRow: View {
                 Button(L("CollapseAll")) { tree.open = [] }
                 Button(L("Refresh")) { tree.tick += 1 }
             }
+    }
+}
+
+/// With the tree unlocked a row can be dragged; what it carries is FileOps.dragPrefix and its path.
+struct TreeDragSource: ViewModifier {
+    let url: URL
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled { content.onDrag { NSItemProvider(object: (FileOps.dragPrefix + url.path) as NSString) } } else { content }
     }
 }
 

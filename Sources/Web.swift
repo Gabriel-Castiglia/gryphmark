@@ -30,6 +30,13 @@ enum Schemes {
         return s.hasSuffix("/") ? s : s + "/"
     }
 
+    /// The page's address of a file: gm-doc://doc/<absolute path>.
+    static func address(of file: URL) -> String {
+        var c = URLComponents()
+        c.scheme = doc; c.host = "doc"; c.path = file.standardizedFileURL.path
+        return c.string ?? docBase
+    }
+
     /// The file a gm-doc address stands for (no check of reach here).
     static func file(of url: URL) -> URL? {
         guard url.scheme == doc else { return nil }
@@ -38,12 +45,14 @@ enum Schemes {
     }
 }
 
-/// Serves gm-doc://doc/<absolute path> for files inside `reach`, never outside it.
+/// Serves gm-doc://doc/<absolute path> for files inside `reach`, and pictures from anywhere (an absolute path or
+/// file: address of a picture in a document, as Windows does since 2.0.0); nothing else outside `reach`.
 final class DocSchemeHandler: NSObject, WKURLSchemeHandler {
     var reach: [URL] = []
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
-        guard let url = task.request.url, let file = Schemes.file(of: url), Wiki.inside(file, any: reach),
+        guard let url = task.request.url, let file = Schemes.file(of: url),
+              Wiki.inside(file, any: reach) || LinkPolicy.pictures.contains(file.pathExtension.lowercased()),
               let data = try? Data(contentsOf: file.resolvingSymlinksInPath()) else {
             task.didFailWithError(URLError(.fileDoesNotExist)); return
         }

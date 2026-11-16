@@ -398,6 +398,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func send(_ sel: Selector) -> () -> Void { { _ = NSApp.sendAction(sel, to: nil, from: nil) } }
 
+    /// View → Layout: Files above Contents, side by side, or Contents on the right of the text (as on Windows).
+    private func layoutItem() -> NSMenuItem {
+        let sub = NSMenu(title: L("Layout"))
+        sub.delegate = states
+        for (key, label) in [("stacked", "LayoutStacked"), ("columns", "LayoutColumns"), ("right", "LayoutRight")] {
+            sub.addItem(item(L(label), on: { [weak self] in self?.prefs.sideLayout == key }) { [weak self] in
+                self?.prefs.sideLayout = key; self?.prefs.sidebar = true
+            })
+        }
+        let top = NSMenuItem(title: L("Layout"), action: nil, keyEquivalent: "")
+        top.submenu = sub
+        return top
+    }
+
+    /// View → Text width: the column of the Visual and GitHub views, in every window.
+    private func widthItem() -> NSMenuItem {
+        let sub = NSMenu(title: L("TextWidth"))
+        sub.delegate = states
+        for (px, label) in [(980, "WidthNormal"), (1280, "WidthWide"), (1600, "WidthWider"), (0, "WidthFull")] {
+            sub.addItem(item(L(label), on: { [weak self] in self?.prefs.textWidth == px }) { [weak self] in
+                self?.prefs.textWidth = px
+                for d in DocWindow.all { Task { await d.web.call("mdApp.setWidth(w)", ["w": px]) } }
+            })
+        }
+        let top = NSMenuItem(title: L("TextWidth"), action: nil, keyEquivalent: "")
+        top.submenu = sub
+        return top
+    }
+
     /// File → Folders at start: the same three choices as the ⋯ menu of the Files panel.
     private func startupItem() -> NSMenuItem {
         let sub = NSMenu(title: L("StartupMenu"))
@@ -529,6 +558,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item(L("Sidebar"), key: "e", mods: [.command, .shift], on: { [weak self] in self?.prefs.sidebar == true }) { [weak self] in
                 self?.prefs.sidebar.toggle()
             },
+            layoutItem(),
+            widthItem(),
             .separator(),
             item(L("ZoomIn"), key: "+", doc { $0.setZoom(Prefs.shared.zoom + 0.1) }),
             item(L("ZoomOut"), key: "-", doc { $0.setZoom(Prefs.shared.zoom - 0.1) }),
