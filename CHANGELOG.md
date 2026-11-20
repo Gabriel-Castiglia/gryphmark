@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.0.0 — 2026-11-20
+
+**Gryphmark is now Vigía**, a name easier to remember: the one who keeps watch from above, as the app watches a
+Markdown file while an AI writes it. The same number as Vigía 3.0.0 for Windows. The icon is a lighthouse, from
+Debenne's design for a lighthouse (c. 1815, The Met, CC0). The repository is now `vigia` (GitHub forwards the old
+address).
+
+- The app is `/Applications/Vigia.app`, with the identifier `io.github.gabriel-castiglia.vigia`; the package is
+  `Vigia-<version>.pkg`, and installing it closes and removes Gryphmark.
+- The first time Vigía starts, the settings of Gryphmark come over whole, and so do its crash-recovery drafts. Each
+  dedicated instance made by Gryphmark ("Name (Gryphmark).app") is made again as a Vigía instance with the same
+  folders, home file, colour and start options, and the old one goes to the Trash; each instance brings its own
+  settings the first time it opens.
+- The texts of the update question name the app as it reads ("Vigía") apart from its file name.
+
 ## 2.2.1 — 2026-11-20
 
 The same number as Gryphmark 2.2.1 for Windows. What 2.1.0 and 2.2.0 brought there, as it fits the Mac, and the fixes

@@ -1,9 +1,9 @@
-// Gryphmark: one document window: open, save, live reload, find, export, print.
+// Vigia: one document window: open, save, live reload, find, export, print.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
 //
-// Live reload is the heart of Gryphmark: when another program (often an AI assistant) changes
+// Live reload is the heart of Vigia: when another program (often an AI assistant) changes
 // the open file, the new text shows at once, in place, and every view keeps its scroll position.
 // The file is watched with a kernel event source, and so is its folder, because many tools save by
 // writing a new file and renaming it over the old one: the old file's watcher then sees a delete
@@ -364,7 +364,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     func alert(_ text: String) {
         let a = NSAlert()
-        a.messageText = "Gryphmark"
+        a.messageText = "Vigía"
         a.informativeText = text
         if let w = window { Task { _ = await a.ask(for: w) } } else { a.runModal() }
     }
@@ -486,7 +486,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
     static var recoveryFolder: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         // each dedicated instance keeps its drafts apart, so the main app never offers them
-        let own = Instance.profile.map { "Gryphmark/profiles/" + Instance.bundleID($0) + "/recovery" } ?? "Gryphmark/recovery"
+        let own = Instance.profile.map { "Vigia/profiles/" + Instance.bundleID($0) + "/recovery" } ?? "Vigia/recovery"
         return base.appendingPathComponent(own, isDirectory: true)
     }
 
@@ -512,7 +512,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
 
     // MARK: links
 
-    /// What the self-test's links asked for outside Gryphmark (a Finder window, a viewer, a web page): recorded and
+    /// What the self-test's links asked for outside Vigia (a Finder window, a viewer, a web page): recorded and
     /// never done. 16-nov-2026: the hostile document's clicked links revealed the temporary folder, and a Finder
     /// window called "T" stayed open after every run.
     static var heldOutside: [LinkAction] = []
@@ -652,7 +652,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta name="generator" content="Gryphmark \(appVersion)">
+            <meta name="generator" content="Vigía \(appVersion)">
             <title>\(title)</title>
             \(math ? "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@\(katexVersion)/dist/katex.min.css\">" : "")
             <style>

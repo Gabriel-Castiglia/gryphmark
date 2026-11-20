@@ -1,4 +1,4 @@
-// Gryphmark: the window's content: toolbar, sidebar (files and contents), find bar, status line.
+// Vigia: the window's content: toolbar, sidebar (files and contents), find bar, status line.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
@@ -727,7 +727,7 @@ struct FileTreeNode: View {
 }
 
 /// What a favourite carries while it is dragged onto another one to take its place.
-let favDragPrefix = "gryphmark-favourite:"
+let favDragPrefix = "vigia-favourite:"
 
 /// The star of a favourite: golden; faint on the other rows while the pointer is over them.
 let favGold = Color(red: 0xE3 / 255, green: 0xA0 / 255, blue: 0x08 / 255)

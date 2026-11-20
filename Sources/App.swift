@@ -1,4 +1,4 @@
-// Gryphmark: start-up, menus, opening files and folders, recovery, updates.
+// Vigia: start-up, menus, opening files and folders, recovery, updates.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
@@ -111,11 +111,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             offerRecovery()
             return
         }
+        Migration.drafts()
+        Migration.instances(from: Bundle.main.bundleURL)
         Instance.refreshAll()
         // Updates that install themselves (SelfUpdate.swift); only the main app checks, the dedicated instances are
         // rebuilt from it when it opens.
         let up = SelfUpdate.shared
-        up.appName = "Gryphmark"
+        up.appName = "Vigia"
+        up.displayName = "Vigía"
         up.repo = appRepo
         up.version = appVersion
         up.language = { Prefs.shared.lang == "es" ? "es" : "en" }
@@ -169,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return target
     }
 
-    /// Files panel → Open in a dedicated instance: the file or folder in its own Gryphmark, made the
+    /// Files panel → Open in a dedicated instance: the file or folder in its own Vigia, made the
     /// first time (in ~/Applications, with this window's colour), brought forward afterwards.
     func openDedicated(_ url: URL, from doc: DocWindow?) {
         var isDir: ObjCBool = false
@@ -177,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let name = Instance.name(for: url)
         let made = Instance.bundleURL(name)
         if Instance.spec(of: made) != nil { Instance.launch(made, files: isDir.boolValue ? [] : [url]); return }
-        guard let source = Instance.mainBundle else { doc?.flash(L("InstanceFail", "Gryphmark")); return }
+        guard let source = Instance.mainBundle else { doc?.flash(L("InstanceFail", "Vigía")); return }
         let spec = Instance.Spec(name: name, accent: prefs.accent,
                                  folders: [isDir.boolValue ? url.path : url.deletingLastPathComponent().path],
                                  home: isDir.boolValue ? nil : url.path)
@@ -296,7 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func openManual() {
-        let name = prefs.lang == "es" ? "Gryphmark-manual-es" : "Gryphmark-manual-en"
+        let name = prefs.lang == "es" ? "Vigia-manual-es" : "Vigia-manual-en"
         if let u = Bundle.main.url(forResource: name, withExtension: "pdf", subdirectory: "docs") { NSWorkspace.shared.open(u) }
     }
 
@@ -426,7 +429,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func buildMenus() {
         let bar = NSMenu()
-        bar.addItem(top("Gryphmark", [
+        bar.addItem(top("Vigía", [
             item(L("About")) { [weak self] in self?.showAbout() },
             item(L("CheckUpdates")) { SelfUpdate.shared.check(interactive: true) },
             .separator(),

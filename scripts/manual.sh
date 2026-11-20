@@ -1,7 +1,7 @@
 #!/bin/zsh
 # manual.sh: builds the PDF manuals from the READMEs.
-#   README.md     -> docs/Gryphmark-manual-en.pdf
-#   README.es.md  -> docs/Gryphmark-manual-es.pdf
+#   README.md     -> docs/Vigia-manual-en.pdf
+#   README.es.md  -> docs/Vigia-manual-es.pdf
 #
 # Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 # Date: November 10, 2026
@@ -18,7 +18,7 @@ set -euo pipefail
 RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 
-REPO="https://github.com/Gabriel-Castiglia/gryphmark"
+REPO="https://github.com/Gabriel-Castiglia/vigia"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 command -v pandoc >/dev/null || { echo "pandoc is missing: brew install pandoc" >&2; exit 1; }
@@ -38,7 +38,7 @@ cat > "$TEMPORAL/portada.html" <<HTML
 <div class="portada">
   <img src="icono/icono-1024.png" alt="">
   <div>
-    <p class="nombre">Gryphmark</p>
+    <p class="nombre">Vigia</p>
     <p class="repo"><a href="$REPO">${REPO#https://}</a></p>
   </div>
 </div>
@@ -75,5 +75,5 @@ generar() {
     echo "Manual: $salida"
 }
 
-generar README.md    en "Gryphmark · Manual"            docs/Gryphmark-manual-en.pdf
-generar README.es.md es "Gryphmark · Manual de usuario" docs/Gryphmark-manual-es.pdf
+generar README.md    en "Vigía · Manual"            docs/Vigia-manual-en.pdf
+generar README.es.md es "Vigía · Manual de usuario" docs/Vigia-manual-es.pdf

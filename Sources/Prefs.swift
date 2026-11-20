@@ -1,9 +1,9 @@
-// Gryphmark: settings, text lookup and the theme colours.
+// Vigia: settings, text lookup and the theme colours.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
 //
-// The settings live in the app's preferences (io.github.gabriel-castiglia.gryphmark). The
+// The settings live in the app's preferences (io.github.gabriel-castiglia.vigia). The
 // screenshot and self-test modes switch persistence off, so they never touch them.
 
 import AppKit
@@ -356,4 +356,4 @@ struct Accent {
 }
 
 let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
-let appRepo = "Gabriel-Castiglia/gryphmark"
+let appRepo = "Gabriel-Castiglia/vigia"

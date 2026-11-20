@@ -1,4 +1,4 @@
-// Gryphmark: [[name]] links, and the folders a document's links and pictures may reach.
+// Vigia: [[name]] links, and the folders a document's links and pictures may reach.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 11, 2026
 // SPDX-License-Identifier: GPL-2.0-only

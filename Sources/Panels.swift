@@ -1,4 +1,4 @@
-// Gryphmark: small dialogs, and the Theme and About windows.
+// Vigia: small dialogs, and the Theme and About windows.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
@@ -105,14 +105,14 @@ struct AboutView: View {
     static var info: String {
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let webkit = Bundle(identifier: "com.apple.WebKit")?.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "Gryphmark \(appVersion) — © 2026 Gabriel Castiglia — GPL-2.0-only\n" +
+        return "Vigía \(appVersion) — © 2026 Gabriel Castiglia — GPL-2.0-only\n" +
             "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion) · arm64\nWebKit \(webkit)"
     }
 
     var body: some View {
         VStack(spacing: 10) {
             if let img = Accent.get(prefs.accent).icon { Image(nsImage: img).resizable().frame(width: 96, height: 96) }
-            Text("Gryphmark").font(.system(size: 22, weight: .semibold))
+            Text("Vigía").font(.system(size: 22, weight: .semibold))
             Text(L("AboutVersion", appVersion)).font(.system(size: 12)).foregroundStyle(.secondary)
             Text(L("AboutTagline"))
             Text(L("AboutBy")).fontWeight(.semibold)

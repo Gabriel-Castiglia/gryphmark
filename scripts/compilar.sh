@@ -1,5 +1,5 @@
 #!/bin/zsh
-# compilar.sh: builds Gryphmark and produces a signed build/Gryphmark.app.
+# compilar.sh: builds Vigia and produces a signed build/Vigia.app.
 #
 # Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 # Date: November 10, 2026
@@ -18,9 +18,9 @@ RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 [[ "${FIRMA:-}" == adhoc ]] || source scripts/firma.sh
 
-VERSION="2.2.1"
+VERSION="3.0.0"
 COMPILACION="1"
-APP="build/Gryphmark.app"
+APP="build/Vigia.app"
 
 # 0. @State needs SwiftUI's macro plugin, which only comes with Xcode: with the Command Line Tools it fails as
 #    "SwiftUIMacros.StateMacro could not be found". Use @StateObject of an ObservableObject instead.
@@ -36,25 +36,25 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 # 1. The app
-swiftc -O -swift-version 5 -target arm64-apple-macos15.0 -module-name Gryphmark \
-    Sources/*.swift -o "$APP/Contents/MacOS/Gryphmark"
+swiftc -O -swift-version 5 -target arm64-apple-macos15.0 -module-name Vigia \
+    Sources/*.swift -o "$APP/Contents/MacOS/Vigia"
 
 # 2. Icon, the twelve colours, the page, samples and manuals
-SET="$(mktemp -d)/Gryphmark.iconset"
+SET="$(mktemp -d)/Vigia.iconset"
 mkdir -p "$SET"
 for t in 16 32 128 256 512; do
     sips -z $t $t icono/icono-1024.png --out "$SET/icon_${t}x${t}.png" >/dev/null
     sips -z $((t * 2)) $((t * 2)) icono/icono-1024.png --out "$SET/icon_${t}x${t}@2x.png" >/dev/null
 done
-iconutil -c icns "$SET" -o "$APP/Contents/Resources/Gryphmark.icns"
+iconutil -c icns "$SET" -o "$APP/Contents/Resources/Vigia.icns"
 rm -rf "${SET:h}"
 R="$APP/Contents/Resources"
 cp -R icono/accents "$R/accents"
 rsync -a --exclude '.DS_Store' web/ "$R/web/"
 mkdir -p "$R/samples" "$R/docs" "$R/licenses"
 cp samples/sample_en.md samples/sample_es.md "$R/samples/"
-cp docs/Gryphmark-manual-en.pdf docs/Gryphmark-manual-es.pdf "$R/docs/" 2>/dev/null || true
-cp LICENSE "$R/licenses/Gryphmark-LICENSE"
+cp docs/Vigia-manual-en.pdf docs/Vigia-manual-es.pdf "$R/docs/" 2>/dev/null || true
+cp LICENSE "$R/licenses/Vigia-LICENSE"
 
 # 3. Info.plist: opens Markdown files (as an alternative, never taking them over)
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -62,11 +62,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Gryphmark</string>
-    <key>CFBundleDisplayName</key><string>Gryphmark</string>
-    <key>CFBundleIdentifier</key><string>io.github.gabriel-castiglia.gryphmark</string>
-    <key>CFBundleExecutable</key><string>Gryphmark</string>
-    <key>CFBundleIconFile</key><string>Gryphmark</string>
+    <key>CFBundleName</key><string>Vigía</string>
+    <key>CFBundleDisplayName</key><string>Vigía</string>
+    <key>CFBundleIdentifier</key><string>io.github.gabriel-castiglia.vigia</string>
+    <key>CFBundleExecutable</key><string>Vigia</string>
+    <key>CFBundleIconFile</key><string>Vigia</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>$COMPILACION</string>

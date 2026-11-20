@@ -1,11 +1,11 @@
 """
-Gryphmark for macOS: the app icon and its twelve theme colours.
+Vigía for macOS: the app icon and its twelve theme colours.
 Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 Date: November 10, 2026
 SPDX-License-Identifier: GPL-2.0-only
 
-The drawing is the one of the Windows version (assets/gryphmark.png: Martin Schongauer's
-griffin, c. 1485, The Met, CC0, holding a quill), recoloured the same way: only the coloured
+The drawing is the one of the Windows version (assets/vigia.png: the lighthouse of Debenne's
+design for a lighthouse, c. 1815, The Met, CC0), recoloured the same way: only the coloured
 background changes; each pixel's weight is its saturation and the new colour keeps the
 original brightness, so edges and texture survive. Then the square is redrawn on the macOS
 icon grid: an 824 px rounded square centred on a 1024 px canvas.
@@ -23,7 +23,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 root = pathlib.Path(__file__).resolve().parents[1]
-src = root / "assets" / "gryphmark.png"
+src = root / "assets" / "vigia.png"
 (root / "icono" / "accents").mkdir(parents=True, exist_ok=True)
 (root / "build").mkdir(exist_ok=True)
 

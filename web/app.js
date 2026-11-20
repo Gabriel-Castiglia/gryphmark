@@ -1,4 +1,4 @@
-/* Gryphmark — editor page. Talks to the WPF host through chrome.webview.
+/* Vigia — editor page. Talks to the WPF host through chrome.webview.
    Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
    Date: November 10, 2026
    SPDX-License-Identifier: GPL-2.0-only */
@@ -26,7 +26,7 @@
   function editorText() { return editor ? editor.getMarkdown() : original; }
   function currentText() { return editor ? preserveFormatting(editor.getMarkdown()) : original; }
   function editorFailed(e) {
-    try { console.error('Gryphmark: the editor failed', e); } catch (x) { }
+    try { console.error('Vigia: the editor failed', e); } catch (x) { }
     try { if (editor) editor.destroy(); } catch (x) { }
     editor = null;
     editorBroken = true;

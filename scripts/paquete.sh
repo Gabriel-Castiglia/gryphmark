@@ -1,5 +1,5 @@
 #!/bin/zsh
-# paquete.sh: builds the installer package build/Gryphmark-<version>.pkg.
+# paquete.sh: builds the installer package build/Vigia-<version>.pkg.
 #
 # Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 # Date: November 10, 2026
@@ -9,7 +9,7 @@
 # the GNU General Public License, version 2, as published by the Free Software Foundation.
 # It is distributed WITHOUT ANY WARRANTY. See the LICENSE file for details.
 #
-# The package installs /Applications/Gryphmark.app; a running Gryphmark is closed first
+# The package installs /Applications/Vigia.app; a running Vigia is closed first
 # (instalador/scripts/preinstall). Its pages are in English and Spanish
 # (instalador/resources/*.lproj); macOS Installer shows the language of the Mac. The package
 # itself is not signed: that needs an Apple Developer ID.
@@ -19,23 +19,23 @@ RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 
 scripts/compilar.sh
-export VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/Gryphmark.app/Contents/Info.plist)
+export VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/Vigia.app/Contents/Info.plist)
 # Fills in @VERSION@ (passed through the environment, never through a sed pattern).
 rellenar() { perl -pe 's/\@VERSION\@/$ENV{VERSION}/g' "$1" > "$2" }
 
 TRABAJO=build/pkg
 rm -rf $TRABAJO
 mkdir -p $TRABAJO/raiz/Applications $TRABAJO/recursos
-ditto build/Gryphmark.app $TRABAJO/raiz/Applications/Gryphmark.app
+ditto build/Vigia.app $TRABAJO/raiz/Applications/Vigia.app
 
 # Never relocate: install to /Applications even if another copy is registered elsewhere.
 pkgbuild --analyze --root $TRABAJO/raiz $TRABAJO/componente.plist >/dev/null
 plutil -replace 0.BundleIsRelocatable -bool NO $TRABAJO/componente.plist
 
 pkgbuild --root $TRABAJO/raiz --component-plist $TRABAJO/componente.plist \
-    --identifier io.github.gabriel-castiglia.gryphmark.pkg --version $VERSION \
+    --identifier io.github.gabriel-castiglia.vigia.pkg --version $VERSION \
     --install-location / --scripts instalador/scripts \
-    $TRABAJO/Gryphmark-component.pkg >/dev/null
+    $TRABAJO/Vigia-component.pkg >/dev/null
 
 for idioma in en es; do
     mkdir -p $TRABAJO/recursos/$idioma.lproj
@@ -46,15 +46,15 @@ for idioma in en es; do
 done
 rellenar instalador/Distribution.xml $TRABAJO/Distribution.xml
 
-SALIDA=build/Gryphmark-$VERSION.pkg
+SALIDA=build/Vigia-$VERSION.pkg
 productbuild --distribution $TRABAJO/Distribution.xml --resources $TRABAJO/recursos \
     --package-path $TRABAJO $SALIDA >/dev/null
 rm -rf $TRABAJO
 
 # Remove the build copy from the app register, so Spotlight lists only the installed one.
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
-$LSREGISTER -u "$RAIZ/build/Gryphmark.app" 2>/dev/null || true
-rm -rf build/Gryphmark.app
+$LSREGISTER -u "$RAIZ/build/Vigia.app" 2>/dev/null || true
+rm -rf build/Vigia.app
 
 echo "Built: $RAIZ/$SALIDA"
 (cd build && shasum -a 256 ${SALIDA:t})

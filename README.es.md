@@ -1,25 +1,28 @@
-<p align="center"><img src="icono/icono-1024.png" width="140" alt="Gryphmark"></p>
+<p align="center"><img src="icono/icono-1024.png" width="140" alt="Vigía"></p>
 
-<h1 align="center">Gryphmark</h1>
+<h1 align="center">Vigía</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 20 de noviembre de 2026 · versión 2.2.1 · GPL-2.0-only
+Gabriel Castiglia · 20 de noviembre de 2026 · versión 3.0.0 · GPL-2.0-only
+
+Hasta la versión 2.2.1 se llamaba Gryphmark: al instalar Vigía se quita, y su configuración, sus instancias
+dedicadas y sus borradores de recuperación pasan solos la primera vez que Vigía arranca.
 
 [English](README.md) · Español
 
-Versión para Windows: <https://github.com/Gabriel-Castiglia/gryphmark-windows>
+Versión para Windows: <https://github.com/Gabriel-Castiglia/vigia-windows>
 
-Manual en PDF: [`docs/Gryphmark-manual-es.pdf`](docs/Gryphmark-manual-es.pdf)
+Manual en PDF: [`docs/Vigia-manual-es.pdf`](docs/Vigia-manual-es.pdf)
 
 > Solo para macOS 15 o posterior en Apple silicon (arm64). No hay versión para Mac con procesador Intel.
 
-Gryphmark es un visor y editor de Markdown para la Mac. Das formato con botones (títulos, negrita, listas,
-tablas, código) y Gryphmark escribe las etiquetas de Markdown por vos; la vista GitHub muestra el documento tal
+Vigía es un visor y editor de Markdown para la Mac. Das formato con botones (títulos, negrita, listas,
+tablas, código) y Vigía escribe las etiquetas de Markdown por vos; la vista GitHub muestra el documento tal
 cual lo muestra GitHub, en claro u oscuro. La interfaz está en español e inglés.
 
 ## Recarga en vivo
 
-Cuando otro programa cambia el archivo abierto, por ejemplo un asistente de IA que lo edita, Gryphmark muestra el
+Cuando otro programa cambia el archivo abierto, por ejemplo un asistente de IA que lo edita, Vigía muestra el
 texto nuevo enseguida y te deja donde estabas leyendo, en cualquiera de las vistas; si estabas leyendo el final, seguís lo que se agrega ahí. Sigue las distintas formas de
 guardar: escribir encima del archivo, escribir uno nuevo y renombrarlo encima del viejo, o borrarlo y volver a
 escribirlo. Sigue funcionando con la ventana detrás de otras apps, así que el cambio ya está cuando mirás. Lo que
@@ -35,23 +38,23 @@ punto o la fila que se agregó. Si tenés cambios sin guardar, pregunta antes de
 
 ## Instalación
 
-Bajá `Gryphmark-<versión>.pkg` de la [página de versiones](https://github.com/Gabriel-Castiglia/gryphmark/releases/latest)
-y abrilo. El instalador está en español o inglés, según el idioma de la Mac. Pone `Gryphmark.app` en
+Bajá `Vigia-<versión>.pkg` de la [página de versiones](https://github.com/Gabriel-Castiglia/vigia/releases/latest)
+y abrilo. El instalador está en español o inglés, según el idioma de la Mac. Pone `Vigia.app` en
 `/Applications` y, si había una copia abierta, la cierra antes; instalar un paquete más nuevo conserva la
 configuración.
 
 El paquete no está firmado con un Developer ID de Apple, así que la primera vez macOS no lo abre («Apple no
 pudo verificar…»). Abrí Configuración del Sistema → Privacidad y seguridad, bajá hasta el aviso sobre
-`Gryphmark-<versión>.pkg`, hacé clic en Abrir igualmente y confirmá. Con el archivo `SHA256SUMS.txt` de cada
+`Vigia-<versión>.pkg`, hacé clic en Abrir igualmente y confirmá. Con el archivo `SHA256SUMS.txt` de cada
 versión podés comprobar la descarga antes:
 
 ```
-shasum -a 256 Gryphmark-2.2.1.pkg
+shasum -a 256 Vigia-3.0.0.pkg
 ```
 
-Gryphmark puede abrir archivos Markdown desde el Finder (clic derecho → Abrir con → Gryphmark) sin quitárselos a
-la app que los abre hoy. Para desinstalarlo, cerrá Gryphmark, arrastrá `/Applications/Gryphmark.app` a la
-papelera y, si querés borrar también la configuración, corré `defaults delete io.github.gabriel-castiglia.gryphmark`.
+Vigía puede abrir archivos Markdown desde el Finder (clic derecho → Abrir con → Vigía) sin quitárselos a
+la app que los abre hoy. Para desinstalarlo, cerrá Vigía, arrastrá `/Applications/Vigia.app` a la
+papelera y, si querés borrar también la configuración, corré `defaults delete io.github.gabriel-castiglia.vigia`.
 
 ## Uso
 
@@ -88,9 +91,9 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - Actualizaciones que se instalan solas: Ayuda → Buscar actualizaciones, y un chequeo diario. Si hay una versión más
   nueva, una sola pregunta: Actualizar ahora, Ver novedades o Más tarde. El paquete se descarga y se compara con el
   `SHA256SUMS.txt` de la versión (si no coincide se borra sin abrirlo), y la app que trae tiene que tener el mismo
-  identificador, la versión anunciada y la misma firma; Gryphmark se cierra como cuando lo cerrás vos (pregunta por
+  identificador, la versión anunciada y la misma firma; Vigía se cierra como cuando lo cerrás vos (pregunta por
   los cambios sin guardar), la app nueva ocupa el lugar de la vieja y se abre. Las instancias dedicadas toman la
-  versión nueva cuando se abre la app principal. Una copia que no es `/Applications/Gryphmark.app` recibe la página
+  versión nueva cuando se abre la app principal. Una copia que no es `/Applications/Vigia.app` recibe la página
   de descarga; una instalada por otro usuario abre el paquete ya comprobado en el Instalador.
 - Cambiar de nombre y mover archivos: clic derecho en un archivo o una carpeta del panel → *Cambiar nombre…*. Para
   mover, un clic en el candado de la cabecera del panel desbloquea el árbol, y los archivos y carpetas se arrastran
@@ -118,17 +121,17 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
   de bytes.
 - Autoguardado, encendido de fábrica: un archivo con nombre se guarda solo un momento después de que dejás de
   escribir. El interruptor *Autoguardado* de la barra (también Archivo → Autoguardado) lo apaga, y entonces solo
-  Guardar (⌘S) escribe el archivo. Nunca escribe encima de un cambio hecho por otro programa: Gryphmark pregunta
+  Guardar (⌘S) escribe el archivo. Nunca escribe encima de un cambio hecho por otro programa: Vigía pregunta
   antes, igual que sin autoguardado.
-- Si Gryphmark se cierra sin guardar, al volver a abrirlo ofrece recuperar el texto.
+- Si Vigía se cierra sin guardar, al volver a abrirlo ofrece recuperar el texto.
 - Los enlaces `[[nombre]]` de la vista GitHub abren el archivo Markdown de ese nombre en las carpetas abiertas,
   como en una wiki; el que no lleva a ningún archivo sale en rojo. Un documento que está dentro de una carpeta del
   panel de archivos puede enlazar a las otras carpetas del panel, con `../` como en el disco.
 - Instancias dedicadas: clic derecho en un archivo o una carpeta del panel de archivos → *Abrir en una instancia
   dedicada*. Queda como una app propia en Aplicaciones de tu carpeta de inicio, con sus ajustes y el color de su
   ícono, y la podés dejar en el Dock. Desde la Terminal:
-  `Gryphmark.app/Contents/MacOS/Gryphmark --make-instance "Notas" --accent red --folder ~/Notas --read-only --mode preview`.
-- Hasta que abrís un archivo propio, Gryphmark arranca con el documento de ejemplo (Ayuda → Documento de ejemplo
+  `Vigia.app/Contents/MacOS/Vigia --make-instance "Notas" --accent red --folder ~/Notas --read-only --mode preview`.
+- Hasta que abrís un archivo propio, Vigía arranca con el documento de ejemplo (Ayuda → Documento de ejemplo
   lo abre cuando quieras). En una ventana angosta, los botones de formato que no entran pasan al menú ⋯.
 - Ver → Tema… (⌘,) elige claro, oscuro o como macOS, y uno de doce colores para el resaltado y el ícono del
   Dock. El ícono en el Finder y en Launchpad sigue dorado, porque cambiarlo rompería la firma de la app.
@@ -139,18 +142,18 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 
 Un documento no puede ejecutar nada. El HTML que trae un archivo Markdown se limpia con DOMPurify antes de que la
 vista GitHub o una exportación lo muestren. Los enlaces solo abren páginas web, correo, otros archivos Markdown
-(en Gryphmark), imágenes y PDF; un enlace a cualquier otro archivo, como un programa o un script, solo lo muestra
+(en Vigía), imágenes y PDF; un enlace a cualquier otro archivo, como un programa o un script, solo lo muestra
 en el Finder. La página del editor no llega a nada más que sus propios archivos, la carpeta del documento
 abierto (o, si el documento está dentro de una carpeta del panel de archivos, las carpetas del panel) y las imágenes.
 
 ## Compilar
 
 ```
-git clone https://github.com/Gabriel-Castiglia/gryphmark.git
-cd gryphmark
-scripts/compilar.sh          # build/Gryphmark.app
-scripts/paquete.sh           # build/Gryphmark-<versión>.pkg
-build/Gryphmark.app/Contents/MacOS/Gryphmark --self-test
+git clone https://github.com/Gabriel-Castiglia/vigia.git
+cd vigia
+scripts/compilar.sh          # build/Vigia.app
+scripts/paquete.sh           # build/Vigia-<versión>.pkg
+build/Vigia.app/Contents/MacOS/Vigia --self-test
 ```
 
 `compilar.sh` firma la app con un certificado propio guardado en su propio llavero, que crea la primera vez,
@@ -172,7 +175,7 @@ versiones exactas de `_npm/package-lock.json`. `scripts/manual.sh` hace los manu
 README, `scripts/capturas.sh` las imágenes de `docs/img`, y `tools/make_icons.py` el ícono y sus doce colores
 (Python con numpy y Pillow).
 
-Las versiones de las herramientas con que se compiló y probó Gryphmark 2.2.1 están en la tabla del
+Las versiones de las herramientas con que se compiló y probó Vigía 3.0.0 están en la tabla del
 [README en inglés](README.md#building-from-source).
 
 ## Estructura
@@ -183,7 +186,7 @@ Las versiones de las herramientas con que se compiló y probó Gryphmark 2.2.1 e
 | `web/` | La página del editor y sus bibliotecas, compartidas con la versión para Windows |
 | `_npm/` | Las dependencias web y la entrada de esbuild |
 | `samples/` | El documento de ejemplo, en español e inglés |
-| `assets/`, `icono/` | El grabado del grifo, el ícono y sus doce colores |
+| `assets/`, `icono/` | El ícono del faro y sus doce colores |
 | `instalador/` | Las páginas y el script del paquete instalador |
 | `scripts/` | Compilar, empaquetar, paquete web, manuales e imágenes |
 | `tools/` | Dibujo del ícono |
@@ -191,7 +194,7 @@ Las versiones de las herramientas con que se compiló y probó Gryphmark 2.2.1 e
 
 ## Licencia y créditos
 
-Copyright (C) 2026 Gabriel Castiglia. Gryphmark es software libre bajo la GNU General Public License, versión 2
+Copyright (C) 2026 Gabriel Castiglia. Vigía es software libre bajo la GNU General Public License, versión 2
 únicamente (GPL-2.0-only); ver [`LICENSE`](LICENSE). Se distribuye sin ninguna garantía.
 
 | Componente | Licencia |
@@ -199,4 +202,4 @@ Copyright (C) 2026 Gabriel Castiglia. Gryphmark es software libre bajo la GNU Ge
 | TOAST UI Editor, ProseMirror, marked (+ extensiones alert, footnote, katex), github-markdown-css, Mermaid, KaTeX, gemoji | MIT |
 | highlight.js, jsdiff | BSD-3-Clause |
 | DOMPurify | MPL-2.0 (usado bajo la opción MPL-2.0 de su doble licencia MPL-2.0 / Apache-2.0) |
-| Ícono: el grifo del grabado de Martin Schongauer (c. 1485), Museo Metropolitano de Arte, con una pluma agregada | CC0 |
+| Ícono: el faro del proyecto de faro de Debenne (c. 1815), Museo Metropolitano de Arte | CC0 |

@@ -1,4 +1,4 @@
-// Gryphmark: the search box above the Files tree: by file name or in the text of the files.
+// Vigia: the search box above the Files tree: by file name or in the text of the files.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 17, 2026
 // SPDX-License-Identifier: GPL-2.0-only

@@ -1,4 +1,4 @@
-# Bienvenido a Gryphmark
+# Bienvenido a Vigía
 
 Este es un **documento de ejemplo**. Cambialo todo lo que quieras: se abre como una copia sin título, así que el original nunca se pisa. Si querés conservar tu versión, guardala con **Guardar como**.
 
@@ -9,7 +9,7 @@ Este es un **documento de ejemplo**. Cambialo todo lo que quieras: se abre como 
 
 | Vista | Atajo | Qué ves |
 |:--|:--:|:--|
-| **Visual** | `⌘1` | El documento con formato. Escribís y usás los botones; Gryphmark escribe las etiquetas. |
+| **Visual** | `⌘1` | El documento con formato. Escribís y usás los botones; Vigía escribe las etiquetas. |
 | **Markdown** | `⌘2` | El texto Markdown a la izquierda y la vista previa en vivo a la derecha. |
 | **GitHub** | `⌘3` | Solo lectura: la página tal cual la va a mostrar GitHub. |
 

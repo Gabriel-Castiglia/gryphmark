@@ -1,4 +1,4 @@
-// Gryphmark: renaming and moving files and folders from the Files panel, with undo and redo (as on Windows).
+// Vigia: renaming and moving files and folders from the Files panel, with undo and redo (as on Windows).
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 16, 2026
 // SPDX-License-Identifier: GPL-2.0-only
@@ -21,7 +21,7 @@ final class FileOps: ObservableObject {
     @Published private(set) var generation = 0          // the trees reload when it changes
 
     /// What a drag of the tree carries: this prefix and the path (nothing else is taken as a drop).
-    nonisolated static let dragPrefix = "gryphmark-tree:"
+    nonisolated static let dragPrefix = "vigia-tree:"
 
     static func isUnder(_ p: URL, _ dir: URL) -> Bool {
         let d = dir.standardizedFileURL.path

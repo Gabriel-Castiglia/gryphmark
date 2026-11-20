@@ -1,10 +1,10 @@
-// Gryphmark: what a link in a document may open.
+// Vigia: what a link in a document may open.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
 //
 // A document must never be able to run a program. The rules are those of the Windows version:
-//   - a Markdown file the document may reach opens in Gryphmark (its folder, or every folder of
+//   - a Markdown file the document may reach opens in Vigia (its folder, or every folder of
 //     the Files panel when the document is inside one of them: Wiki.reach);
 //   - a picture or a PDF it may reach opens in its viewer (a picture from anywhere, as the page may show it);
 //   - any other file it may reach is only shown in the Finder;

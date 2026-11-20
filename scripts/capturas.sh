@@ -9,13 +9,13 @@
 # the GNU General Public License, version 2, as published by the Free Software Foundation.
 # It is distributed WITHOUT ANY WARRANTY. See the LICENSE file for details.
 #
-# Uses build/Gryphmark.app (scripts/compilar.sh) and the sample document. The screenshot mode
+# Uses build/Vigia.app (scripts/compilar.sh) and the sample document. The screenshot mode
 # never reads or writes the app's settings.
 
 set -euo pipefail
 RAIZ="${0:A:h:h}"
 cd "$RAIZ"
-B=build/Gryphmark.app/Contents/MacOS/Gryphmark
+B=build/Vigia.app/Contents/MacOS/Vigia
 [[ -x $B ]] || { echo "build the app first: scripts/compilar.sh" >&2; exit 1 }
 mkdir -p docs/img
 for idioma in en es; do

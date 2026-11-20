@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Gryphmark installer package. scripts/paquete.sh fills in @VERSION@.
+<!-- Vigía installer package. scripts/paquete.sh fills in @VERSION@.
      Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
      SPDX-License-Identifier: GPL-2.0-only -->
 <installer-gui-script minSpecVersion="2">
@@ -16,12 +16,12 @@
     </volume-check>
     <choices-outline>
         <line choice="default">
-            <line choice="io.github.gabriel-castiglia.gryphmark.pkg"/>
+            <line choice="io.github.gabriel-castiglia.vigia.pkg"/>
         </line>
     </choices-outline>
     <choice id="default"/>
-    <choice id="io.github.gabriel-castiglia.gryphmark.pkg" visible="false">
-        <pkg-ref id="io.github.gabriel-castiglia.gryphmark.pkg"/>
+    <choice id="io.github.gabriel-castiglia.vigia.pkg" visible="false">
+        <pkg-ref id="io.github.gabriel-castiglia.vigia.pkg"/>
     </choice>
-    <pkg-ref id="io.github.gabriel-castiglia.gryphmark.pkg" version="@VERSION@" onConclusion="none">Gryphmark-component.pkg</pkg-ref>
+    <pkg-ref id="io.github.gabriel-castiglia.vigia.pkg" version="@VERSION@" onConclusion="none">Vigia-component.pkg</pkg-ref>
 </installer-gui-script>

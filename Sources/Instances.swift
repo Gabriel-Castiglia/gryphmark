@@ -1,11 +1,11 @@
-// Gryphmark: dedicated instances, each one its own app with its own icon, settings and session.
+// Vigia: dedicated instances, each one its own app with its own icon, settings and session.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 11, 2026
 // SPDX-License-Identifier: GPL-2.0-only
 //
-// On Windows a dedicated instance is Gryphmark started with --profile "Name". On the Mac a Dock
-// icon belongs to an app, so a dedicated instance is an app of its own: a copy of Gryphmark in
-// ~/Applications ("Name (Gryphmark).app", an APFS clone that takes no space) with another bundle
+// On Windows a dedicated instance is Vigia started with --profile "Name". On the Mac a Dock
+// icon belongs to an app, so a dedicated instance is an app of its own: a copy of Vigia in
+// ~/Applications ("Name (Vigía).app", an APFS clone that takes no space) with another bundle
 // identifier, so the Mac keeps its settings, window and recent files apart from the main app's,
 // and an icon in its theme colour. Its Info.plist says which folders it shows in the Files panel,
 // which file it opens at start, and whether it always starts read-only and in which view.
@@ -19,7 +19,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 enum Instance {
-    static let mainID = "io.github.gabriel-castiglia.gryphmark"
+    static let mainID = "io.github.gabriel-castiglia.vigia"
     private static var info: [String: Any] { Bundle.main.infoDictionary ?? [:] }
 
     /// Name of this dedicated instance; nil in the main app.
@@ -47,7 +47,7 @@ enum Instance {
     /// The name with the characters a file name cannot carry replaced.
     static func safeName(_ name: String) -> String {
         let s = name.trimmingCharacters(in: .whitespacesAndNewlines).map { "/:\\".contains($0) ? "_" : String($0) }.joined()
-        return s.isEmpty ? "Gryphmark" : s
+        return s.isEmpty ? "Vigía" : s
     }
 
     /// Bundle identifier of an instance: letters and digits of its name only.
@@ -59,7 +59,7 @@ enum Instance {
         return mainID + ".profile." + (slug.isEmpty ? "instance" : slug)
     }
 
-    static func bundleURL(_ name: String) -> URL { appsFolder.appendingPathComponent(safeName(name) + " (Gryphmark).app", isDirectory: true) }
+    static func bundleURL(_ name: String) -> URL { appsFolder.appendingPathComponent(safeName(name) + " (Vigía).app", isDirectory: true) }
 
     /// Profile name for a file or a folder: its name without extension (as on Windows).
     static func name(for path: URL) -> String {
@@ -68,7 +68,7 @@ enum Instance {
         return isDir.boolValue ? path.lastPathComponent : path.deletingPathExtension().lastPathComponent
     }
 
-    /// The main Gryphmark: this app, or (inside an instance) the one the Mac knows by its identifier.
+    /// The main Vigia: this app, or (inside an instance) the one the Mac knows by its identifier.
     static var mainBundle: URL? {
         isDedicated ? NSWorkspace.shared.urlForApplication(withBundleIdentifier: mainID) : Bundle.main.bundleURL
     }
@@ -80,7 +80,7 @@ enum Instance {
 
     // MARK: making one
 
-    /// Builds the instance app from `source` (the main Gryphmark), or rebuilds it in place. The settings
+    /// Builds the instance app from `source` (the main Vigia), or rebuilds it in place. The settings
     /// of a new instance start from the main app's (language, theme, view, spelling, zoom); a rebuilt one
     /// keeps its own.
     @discardableResult
@@ -92,7 +92,7 @@ enum Instance {
             throw Failure(L("InstanceRunning", spec.name))
         }
         try fm.createDirectory(at: appsFolder, withIntermediateDirectories: true)
-        let tmp = appsFolder.appendingPathComponent(".gryphmark-\(UUID().uuidString).app", isDirectory: true)
+        let tmp = appsFolder.appendingPathComponent(".vigia-\(UUID().uuidString).app", isDirectory: true)
         defer { try? fm.removeItem(at: tmp) }
         try fm.copyItem(at: source, to: tmp)   // APFS: a clone, no space taken
 
@@ -100,7 +100,7 @@ enum Instance {
         guard var plist = NSDictionary(contentsOf: plistURL) as? [String: Any] else { throw Failure("Info.plist") }
         plist["CFBundleIdentifier"] = id
         plist["CFBundleName"] = safeName(spec.name)
-        plist["CFBundleDisplayName"] = safeName(spec.name) + " (Gryphmark)"
+        plist["CFBundleDisplayName"] = safeName(spec.name) + " (Vigía)"
         plist.removeValue(forKey: "CFBundleDocumentTypes")
         plist["GMProfile"] = spec.name
         plist["GMAccent"] = spec.accent
@@ -111,7 +111,7 @@ enum Instance {
         guard (plist as NSDictionary).write(to: plistURL, atomically: true) else { throw Failure("Info.plist") }
 
         let accentPNG = tmp.appendingPathComponent("Contents/Resources/accents/\(spec.accent).png")
-        try writeIcns(from: accentPNG, to: tmp.appendingPathComponent("Contents/Resources/Gryphmark.icns"))
+        try writeIcns(from: accentPNG, to: tmp.appendingPathComponent("Contents/Resources/Vigia.icns"))
         try run("/usr/bin/codesign", ["--force", "--sign", "-", "--timestamp=none", tmp.path])
 
         seed(id: id, spec: spec)
@@ -226,7 +226,7 @@ enum Instance {
 
     // MARK: the command line
 
-    /// gryphmark --make-instance "Name" [--accent red] [--folder PATH]… [--home FILE] [--read-only] [--mode preview] [--open]
+    /// vigia --make-instance "Name" [--accent red] [--folder PATH]… [--home FILE] [--read-only] [--mode preview] [--open]
     /// Prints the path of the app and exits (0 when it was made).
     static func makeFromCommandLine(_ a: [String]) -> Never {
         func value(_ flag: String) -> String? { a.firstIndex(of: flag).flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } }
@@ -242,7 +242,7 @@ enum Instance {
         }
         let spec = Spec(name: name, accent: accent, folders: folders, home: value("--home").map(path),
                         startReadOnly: a.contains("--read-only"), startMode: value("--mode"))
-        guard let source = mainBundle else { FileHandle.standardError.write(Data("Gryphmark not found\n".utf8)); exit(1) }
+        guard let source = mainBundle else { FileHandle.standardError.write(Data("Vigía not found\n".utf8)); exit(1) }
         do {
             let app = try make(spec, from: source)
             print(app.path)

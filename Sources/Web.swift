@@ -1,4 +1,4 @@
-// Gryphmark: the editor page in a WKWebView, and what it may reach.
+// Vigia: the editor page in a WKWebView, and what it may reach.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only

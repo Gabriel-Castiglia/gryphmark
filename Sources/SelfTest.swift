@@ -1,4 +1,4 @@
-// Gryphmark: --self-test, run in the real window with the real page.
+// Vigia: --self-test, run in the real window with the real page.
 // Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 // Date: November 10, 2026
 // SPDX-License-Identifier: GPL-2.0-only
@@ -144,7 +144,7 @@ enum SelfTest {
     @MainActor
     static func run(_ d: DocWindow) async {
         let fm = FileManager.default
-        let tmp = fm.temporaryDirectory.appendingPathComponent("gryphmark-selftest-\(UUID().uuidString)", isDirectory: true)
+        let tmp = fm.temporaryDirectory.appendingPathComponent("vigia-selftest-\(UUID().uuidString)", isDirectory: true)
         try? fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
@@ -402,7 +402,7 @@ enum SelfTest {
         try? await Task.sleep(nanoseconds: 300_000_000)
         let afterClick = await d.web.call("return window.__pwned === undefined ? 0 : window.__pwned") as? Int ?? -1
         check("hostile: clicked links run nothing", afterClick == 0, "marker \(afterClick)")
-        // what they asked outside Gryphmark was held, not done: no Finder window is left open by the self-test
+        // what they asked outside Vigia was held, not done: no Finder window is left open by the self-test
         check("hostile: links to the Finder or other apps are held during the self-test",
               !DocWindow.heldOutside.isEmpty && DocWindow.heldOutside.allSatisfy { if case .external = $0 { return true }; if case .reveal = $0 { return true }; if case .openViewer = $0 { return true }; return false },
               "\(DocWindow.heldOutside)")
@@ -505,7 +505,7 @@ enum SelfTest {
         check("recent: an opened folder is first in the recent folders", xp.recentFolders.first == tmp.path, "\(xp.recentFolders)")
         xp.folders = savedFolders; xp.recentFolders = savedRecent
         check("about: Copy info gives the version and the system",
-              AboutView.info.contains("Gryphmark \(appVersion)") && AboutView.info.contains("macOS "), AboutView.info)
+              AboutView.info.contains("Vigía \(appVersion)") && AboutView.info.contains("macOS "), AboutView.info)
         xapp.buildMenus()
         let recentMenu = NSApp.mainMenu?.items.first(where: { $0.submenu?.items.contains { $0.title == L("Recent") } ?? false })?
             .submenu?.items.first(where: { $0.title == L("Recent") })?.submenu
@@ -810,7 +810,7 @@ enum SelfTest {
         do {
             let app = try Instance.make(spec, from: Bundle.main.bundleURL)
             let p = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) as? [String: Any] ?? [:]
-            let icns = app.appendingPathComponent("Contents/Resources/Gryphmark.icns")
+            let icns = app.appendingPathComponent("Contents/Resources/Vigia.icns")
             let widths: [Int] = CGImageSourceCreateWithURL(icns as CFURL, nil).map { s in
                 (0..<CGImageSourceGetCount(s)).compactMap { CGImageSourceCreateImageAtIndex(s, $0, nil)?.width }
             } ?? []
@@ -821,7 +821,7 @@ enum SelfTest {
             let seeded = UserDefaults(suiteName: id)
             check("instance: own identifier and name, no Markdown file types",
                   p["CFBundleIdentifier"] as? String == id && id.hasPrefix(Instance.mainID + ".profile.self-test-nandu-")
-                      && p["CFBundleDocumentTypes"] == nil && app.lastPathComponent == name + " (Gryphmark).app",
+                      && p["CFBundleDocumentTypes"] == nil && app.lastPathComponent == name + " (Vigía).app",
                   "\(p["CFBundleIdentifier"] ?? "nil") \(app.lastPathComponent)")
             check("instance: icon in its colour and a valid signature",
                   widths.contains(16) && widths.contains(512) && verify.terminationStatus == 0, "sizes \(widths), codesign \(verify.terminationStatus)")

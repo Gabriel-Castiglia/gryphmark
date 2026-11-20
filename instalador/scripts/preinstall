@@ -1,16 +1,27 @@
 #!/bin/sh
-# Gryphmark package: quits a running Gryphmark before it is replaced.
-# Only the copy in /Applications is quit: the dedicated instances in ~/Applications run the same executable
-# name but are separate apps, and the package does not replace them.
+# Vigía package: quits a running Vigía before it is replaced, and removes Gryphmark, the name of this app up to
+# 2.2.1 (its settings and drafts come over when Vigía starts; see Sources/Migration.swift).
+# Only the copies in /Applications are quit: the dedicated instances in ~/Applications run their own executable
+# copy and are separate apps, which the package does not replace.
 # Copyright (C) 2026 Gabriel Castiglia. Licensed under the GNU GPL, version 2 only.
 # SPDX-License-Identifier: GPL-2.0-only
-exe='^/Applications/Gryphmark\.app/Contents/MacOS/Gryphmark( |$)'
 user=$(/usr/bin/stat -f %Su /dev/console)
-if /usr/bin/pgrep -qf "$exe" && [ -n "$user" ] && [ "$user" != root ]; then
-    uid=$(/usr/bin/id -u "$user")
-    /bin/launchctl asuser "$uid" /usr/bin/sudo -u "$user" /usr/bin/osascript \
-        -e 'tell application id "io.github.gabriel-castiglia.gryphmark" to quit' >/dev/null 2>&1
-    sleep 2
+
+quit() {   # $1: pattern of the executable, $2: bundle identifier
+    if /usr/bin/pgrep -qf "$1" && [ -n "$user" ] && [ "$user" != root ]; then
+        uid=$(/usr/bin/id -u "$user")
+        /bin/launchctl asuser "$uid" /usr/bin/sudo -u "$user" /usr/bin/osascript \
+            -e "tell application id \"$2\" to quit" >/dev/null 2>&1
+        sleep 2
+    fi
+    /usr/bin/pkill -f "$1" 2>/dev/null
+}
+
+quit '^/Applications/Vigia\.app/Contents/MacOS/Vigia( |$)' io.github.gabriel-castiglia.vigia
+
+old=/Applications/Gryphmark.app
+if [ -d "$old" ] && [ "$(/usr/bin/defaults read "$old/Contents/Info" CFBundleIdentifier 2>/dev/null)" = io.github.gabriel-castiglia.gryphmark ]; then
+    quit '^/Applications/Gryphmark\.app/Contents/MacOS/Gryphmark( |$)' io.github.gabriel-castiglia.gryphmark
+    /bin/rm -rf "$old"
 fi
-/usr/bin/pkill -f "$exe" 2>/dev/null
 exit 0
