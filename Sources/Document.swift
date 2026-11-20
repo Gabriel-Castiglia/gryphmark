@@ -37,6 +37,7 @@ final class DocModel: ObservableObject {
 final class DocWindow: NSWindowController, NSWindowDelegate {
     let model = DocModel()
     let web = EditorWeb()
+    let search = SearchState()                // the search box above the Files tree (Search.swift)
     let prefs = Prefs.shared
     private var watcher: FileWatcher?
     private var diskText: String?            // the text last read from or written to disk
@@ -165,6 +166,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         case "findprev": find(step: -1)
         case "findclose": hideFind()
         case "outline", "files": prefs.sidebar.toggle()
+        case "search", "treesearch": focusTreeSearch()
         case "readonly": setReadOnly(!prefs.readOnly)
         case "mode1": setMode("visual")
         case "mode2": setMode("source")
@@ -301,7 +303,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
             panel.nameFieldStringValue = target?.lastPathComponent ?? L("Untitled") + ".md"
             if let t = target { panel.directoryURL = t.deletingLastPathComponent() }
-            guard let w = window, await panel.beginSheetModal(for: w) == .OK, let u = panel.url else { return false }
+            guard let w = window, await panel.ask(for: w) == .OK, let u = panel.url else { return false }
             target = u
         }
         guard let target else { return false }
@@ -353,7 +355,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         a.addButton(withTitle: L("SaveBtn"))
         a.addButton(withTitle: L("Cancel"))
         a.addButton(withTitle: L("DontSave"))
-        switch await a.beginSheetModal(for: w) {
+        switch await a.ask(for: w) {
         case .alertFirstButtonReturn: return await save(as: false)
         case .alertThirdButtonReturn: return true
         default: return false
@@ -364,7 +366,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         let a = NSAlert()
         a.messageText = "Gryphmark"
         a.informativeText = text
-        if let w = window { a.beginSheetModal(for: w) } else { a.runModal() }
+        if let w = window { Task { _ = await a.ask(for: w) } } else { a.runModal() }
     }
 
     // MARK: closing
@@ -413,7 +415,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             a.messageText = L("ChangedOnDisk", url.lastPathComponent)
             a.addButton(withTitle: L("ReloadBtn"))
             a.addButton(withTitle: L("KeepMine"))
-            if await a.beginSheetModal(for: w) == .alertFirstButtonReturn, let again = try? DocWindow.read(url) {
+            if await a.ask(for: w) == .alertFirstButtonReturn, let again = try? DocWindow.read(url) {
                 reloadInPlace(again)
             } else {
                 diskText = r.text      // asked about this version; a newer one asks again
@@ -623,7 +625,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
             let base = model.path?.deletingPathExtension().lastPathComponent ?? L("Untitled")
             panel.nameFieldStringValue = base + ".html"
             if let d = model.path?.deletingLastPathComponent() { panel.directoryURL = d }
-            guard let w = window, await panel.beginSheetModal(for: w) == .OK, let u = panel.url else { return }
+            guard let w = window, await panel.ask(for: w) == .OK, let u = panel.url else { return }
             exportTo(u)
         }
     }

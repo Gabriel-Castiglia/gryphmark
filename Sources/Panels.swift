@@ -38,7 +38,7 @@ enum Dialogs {
         a.accessoryView = stack
         a.window.initialFirstResponder = boxes.first
         let r: NSApplication.ModalResponse
-        if let window { r = await a.beginSheetModal(for: window) } else { r = a.runModal() }
+        if let window { r = await a.ask(for: window) } else { r = a.runModal() }
         return r == .alertFirstButtonReturn ? boxes.map(\.stringValue) : nil
     }
 }

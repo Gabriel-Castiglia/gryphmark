@@ -36,10 +36,41 @@ enum SelfTest {
 
     private static func check(_ name: String, _ ok: Bool, _ detail: @autoclosure () -> String = "") {
         if !ok { failures += 1 }
+        lastCheck = name
         FileHandle.standardError.write(Data("\(ok ? "ok  " : "FAIL") \(name)\(ok ? "" : ": " + detail())\n".utf8))
     }
 
+    /// Out of sight nothing may be seen: the window is transparent, but a question (a sheet) or any other window
+    /// comes with its own opacity (17-nov-2026: «live.md was changed by another program» showed on Gabriel's
+    /// screen at every run). Each one is made transparent at once, and what showed is a failure at the end.
+    private static var shown = Set<String>()
+    private static var lastCheck = "start"
+    private static var parked: [(CheckedContinuation<NSApplication.ModalResponse, Never>, String)] = []
+
+    /// A question asked out of sight waits here until the test answers it.
+    static func park(_ c: CheckedContinuation<NSApplication.ModalResponse, Never>, _ text: String) { parked.append((c, text)) }
+    static var asking: Bool { !parked.isEmpty }
+    static func answer(_ r: NSApplication.ModalResponse) { if !parked.isEmpty { parked.removeFirst().0.resume(returning: r) } }
+    /// What would have been shown out of sight: a failure at the end.
+    static func note(_ what: String) { shown.insert(what + " after «\(lastCheck)»") }
+
+    private static func keepOutOfSight() {
+        func hide(_ w: NSWindow) {
+            guard w.isVisible, w.alphaValue > 0 else { return }
+            shown.insert((w.title.isEmpty ? String(describing: type(of: w)) : w.title) + " after «\(lastCheck)»")
+            w.alphaValue = 0; w.ignoresMouseEvents = true
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.willBeginSheetNotification, object: nil, queue: nil) { n in
+            guard let w = n.object as? NSWindow else { return }
+            (w.sheets + [w.attachedSheet].compactMap { $0 }).forEach { $0.alphaValue = 0; $0.ignoresMouseEvents = true }
+        }
+        let t = Timer(timeInterval: 0.005, repeats: true) { _ in NSApp.windows.forEach(hide) }
+        RunLoop.main.add(t, forMode: .common)
+        RunLoop.main.add(t, forMode: .modalPanel)
+    }
+
     static func start() {
+        if AppDelegate.quiet { keepOutOfSight() }
         let app = NSApp.delegate as! AppDelegate
         let d = app.newWindow()
         d.onReady = { Task { @MainActor in await run(d) } }
@@ -184,6 +215,20 @@ enum SelfTest {
                 check("sidebar: its divider is dragged wider and the width is kept",
                       abs(after.minX - before.minX - 120) < 4 && abs(p.sidebarWidth - 380) < 4,
                       "page from \(before.minX) to \(after.minX), saved \(p.sidebarWidth)")
+                // a double click on it puts the usual width back
+                let at = NSPoint(x: after.minX - SplitHandle.thickness / 2, y: after.midY)
+                for n in 1...2 {
+                    for t in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                        if let e = NSEvent.mouseEvent(with: t, location: at, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                      windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: n,
+                                                      pressure: t == .leftMouseUp ? 0 : 1) { w.sendEvent(e) }
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                check("sidebar: a double click on its divider gives the usual width", abs(p.sidebarWidth - Prefs.defaultSidebar) < 1,
+                      "width \(p.sidebarWidth)")
+                p.sidebarWidth = 380
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 // Files above, Contents below: the sidebar runs from the bottom of the window to the top of the page.
                 let usable = Double(after.maxY - SplitHandle.thickness)
                 let handleY = CGFloat((usable * 0.45).rounded()) + SplitHandle.thickness / 2
@@ -193,6 +238,7 @@ enum SelfTest {
             } else {
                 skip("sidebar: its divider is dragged wider and the width is kept")
                 skip("sidebar: the divider between Files and Contents is dragged and the split is kept")
+                skip("sidebar: a double click on its divider gives the usual width")
             }
             p.sidebarWidth = 700
             w.setContentSize(NSSize(width: 800, height: 600))
@@ -442,7 +488,12 @@ enum SelfTest {
         try? await Task.sleep(nanoseconds: 1_800_000_000)
         let outside = (try? String(contentsOf: live, encoding: .utf8)) ?? ""
         check("autosave: never writes over another program's change", outside == "# Outside\n", outside)
-        d.window?.attachedSheet.map { d.window?.endSheet($0, returnCode: .alertSecondButtonReturn) }
+        if AppDelegate.quiet {
+            check("live reload: with unsaved changes the window asks", asking)
+            answer(.alertSecondButtonReturn)
+        } else {
+            d.window?.attachedSheet.map { d.window?.endSheet($0, returnCode: .alertSecondButtonReturn) }
+        }
         try? await Task.sleep(nanoseconds: 200_000_000)
         d.model.dirty = false
 
@@ -462,6 +513,7 @@ enum SelfTest {
               recentMenu?.items.first?.title == L("SampleItem") && !xp.sampleHidden, "\(recentMenu?.items.map(\.title) ?? [])")
         await reachAndWiki(d, tmp)
         await picturesFilesLayouts(d, tmp)
+        await searchAndPicker(d, tmp)
         await dedicated(tmp)
 
         // Export.
@@ -473,6 +525,10 @@ enum SelfTest {
         check("export: HTML with the text and no scripts", ok && exported.contains("Exported") && exported.contains("markdown-body")
               && !exported.lowercased().contains("<script"), String(exported.suffix(200)))
 
+        if AppDelegate.quiet {
+            while let (c, text) = parked.first { parked.removeFirst(); note("a question left unanswered: \(text)"); c.resume(returning: .cancel) }
+            check("out of sight: no window or question was shown", shown.isEmpty, shown.sorted().joined(separator: ", "))
+        }
         let skips = skipped > 0 ? " (\(skipped) skipped: they need --visible)" : ""
         FileHandle.standardError.write(Data((failures == 0 ? "self-test: all passed\(skips)\n" : "self-test: \(failures) failed\(skips)\n").utf8))
         try? fm.removeItem(at: tmp)
@@ -644,6 +700,101 @@ enum SelfTest {
         prefs.folders = saved
     }
 
+    /// The search box above the tree (by name and in the text, accents and capitals aside, only what the tree
+    /// shows), a found line opening the document's find bar there, and the layout picker.
+    @MainActor
+    private static func searchAndPicker(_ d: DocWindow, _ tmp: URL) async {
+        let fm = FileManager.default, prefs = Prefs.shared
+        let root = tmp.appendingPathComponent("search").standardizedFileURL
+        try? fm.createDirectory(at: root.appendingPathComponent("Notas/sub"), withIntermediateDirectories: true)
+        let found = root.appendingPathComponent("Notas/Búsqueda.md")
+        try? "# Título\n\nLa búsqueda rápida\n\nOtra línea con BUSQUEDA y nada más\n\nLa última búsqueda\n".write(to: found, atomically: true, encoding: .utf8)
+        try? "busqueda escondida\n".write(to: root.appendingPathComponent("Notas/.oculto.md"), atomically: true, encoding: .utf8)
+        try? "busqueda en texto plano\n".write(to: root.appendingPathComponent("Notas/lista.txt"), atomically: true, encoding: .utf8)
+        try? "nada que ver\n".write(to: root.appendingPathComponent("Notas/sub/otro.md"), atomically: true, encoding: .utf8)
+        let byName = TreeSearch.byName("BUSQ", roots: [root.path])
+        check("search: by name, accents and capitals aside, no hidden files and no .txt",
+              byName.map(\.url) == [found] && byName.first?.name?.hit == "Búsq" && byName.first?.folder == "search/Notas",
+              "\(byName.map { $0.url.lastPathComponent }) \(byName.first?.folder ?? "-")")
+        let text = TreeSearch.byContent("busqueda", roots: [root.path])
+        let lines = text.hits.first?.lines ?? []
+        check("search: in the text, every match with its line, as written in the file",
+              text.hits.map(\.url) == [found] && text.total == 3 && lines.map(\.line) == [3, 5, 7] && lines.map(\.hit) == ["búsqueda", "BUSQUEDA", "búsqueda"]
+                  && lines.map(\.occurrence) == [0, 0, 1]
+                  && lines.count == 3 && lines[1].after == " y nada más" && !text.cut,
+              "\(text.hits.map { $0.url.lastPathComponent }) \(text.total) \(lines)")
+        let many = String(repeating: "x ", count: TreeSearch.maxMatches + 50)
+        try? many.write(to: root.appendingPathComponent("Notas/sub/x.md"), atomically: true, encoding: .utf8)
+        let cut = TreeSearch.byContent("x", roots: [root.path])
+        check("search: stops at its limit and says so", cut.cut && cut.total == TreeSearch.maxMatches, "\(cut.total) \(cut.cut)")
+
+        // the box in the window: the panel shows it, the results replace the tree, a line opens the find bar there
+        let saved = prefs.folders, savedMode = prefs.searchMode
+        prefs.folders = [root.path]; prefs.sidebar = true; prefs.sideLayout = "stacked"
+        let boxShown = await wait(3) { d.search.field?.window === d.window }
+        check("search: the box sits above the tree", boxShown, "field \(String(describing: d.search.field)) in \(String(describing: d.search.field?.window)) not \(String(describing: d.window))")
+        d.focusTreeSearch()
+        let focused = await wait(2) {
+            guard let w = d.window, let f = d.search.field else { return false }
+            return w.firstResponder === f || (w.firstResponder as? NSTextView)?.delegate === f
+        }
+        check("search: Edit → Search in folders puts the caret in the box", focused,
+              String(describing: d.window?.firstResponder))
+        prefs.searchMode = "content"
+        d.search.query = "busqueda"
+        await d.search.run()
+        _ = await wait(3) { !d.search.busy && d.search.rows.count == 3 }
+        check("search: the window's results and the count", d.search.rows.count == 3 && d.search.info.contains("3"),
+              "info «\(d.search.info)» rows \(d.search.rows.count) results \(d.search.results.count) busy \(d.search.busy) query «\(d.search.query)» field «\(d.search.field?.stringValue ?? "-")» mode \(prefs.searchMode)")
+        // the third line is the second «búsqueda» of the file: the find bar must stand on it, not on the first
+        d.search.move(1); d.search.move(1); d.search.move(1)
+        d.search.openSelected(in: d)
+        let opened = await wait(4) {
+            d.model.path == found && d.model.findVisible && d.model.findQuery == "búsqueda" && d.model.findInfo == L("OfCount", 2, 2)
+        }
+        check("search: ↓ ↓ ↓ Return opens the file and the find bar on that very match", opened,
+              "\(d.model.path?.lastPathComponent ?? "-") \(d.model.findQuery) \(d.model.findInfo)")
+        d.hideFind()
+        d.search.query = ""
+        check("search: an empty box gives the tree back", !d.search.active && d.search.rows.isEmpty)
+
+        // the layout picker: each drawing gives its layout, and View → Layout says the same
+        var picked: [String] = []
+        for (key, _) in Layouts.all { Layouts.set(key, prefs); picked.append(Layouts.current(prefs)) }
+        check("layout picker: none, stacked, side by side and right", picked == ["none", "stacked", "columns", "right"]
+              && prefs.sidebar && prefs.sideLayout == "right", "\(picked)")
+        Layouts.set("none", prefs)
+        check("layout picker: none hides the sidebar and keeps the last layout", !prefs.sidebar && prefs.sideLayout == "right")
+        prefs.sideLayout = "stacked"; prefs.sidebar = true
+
+        // the line goes with a click on a found line, for the page to pick the match in a view that hides Markdown
+        check("search: the whole line goes with the click", lines.first?.text == "La búsqueda rápida", lines.first?.text ?? "-")
+
+        // favourites: one list for every folder, folders first, moving, sorting, following a rename, cleaning
+        let savedFav = prefs.favorites
+        let favA = root.appendingPathComponent("Notas/Búsqueda.md").path, favDir = root.appendingPathComponent("Notas/sub").path
+        let favGone = root.appendingPathComponent("Notas/gone.md").path
+        prefs.favorites = []
+        prefs.toggleFavorite(favA); prefs.toggleFavorite(favGone); prefs.toggleFavorite(favDir)
+        check("favourites: folders first, then files in their order", prefs.favoritesShown == [favDir, favA, favGone], "\(prefs.favoritesShown)")
+        prefs.moveFavorite(favGone, by: -1)
+        prefs.moveFavorite(favDir, by: 1)     // a folder does not go among the files
+        check("favourites: move up and down among the same kind", prefs.favoritesShown == [favDir, favGone, favA], "\(prefs.favoritesShown)")
+        prefs.moveFavorite(favA, onto: favGone)
+        check("favourites: dragged onto another one, it takes its place", prefs.favoritesShown == [favDir, favA, favGone], "\(prefs.favoritesShown)")
+        prefs.follow(from: favA, to: favA + ".renamed.md", isDir: false)
+        check("favourites: a rename from the panel is followed", prefs.isFavorite(favA + ".renamed.md") && !prefs.isFavorite(favA))
+        prefs.removeMissingFavorites()
+        check("favourites: the ones that no longer exist are removed", prefs.favorites == [favDir], "\(prefs.favorites)")
+        prefs.toggleFavorite(favDir)
+        check("favourites: the star takes it out again", prefs.favorites.isEmpty)
+        prefs.favorites = savedFav
+
+        for (what, ok) in SelfUpdate.selfTest() { check(what, ok) }
+        prefs.folders = saved; prefs.searchMode = savedMode
+        d.model.dirty = false
+    }
+
     // A dedicated instance made from this app into a temporary Applications folder.
     @MainActor
     private static func dedicated(_ tmp: URL) async {
@@ -689,5 +840,24 @@ enum SelfTest {
         } catch {
             check("instance: made", false, error.localizedDescription)
         }
+    }
+}
+
+extension NSAlert {
+    /// A question on the window. In the self-test out of sight it is not shown at all (a sheet comes with a glass
+    /// backdrop of its own that no transparency hides): it waits for SelfTest.answer instead.
+    @MainActor
+    func ask(for w: NSWindow) async -> NSApplication.ModalResponse {
+        guard AppDelegate.quiet else { return await beginSheetModal(for: w) }
+        return await withCheckedContinuation { SelfTest.park($0, messageText) }
+    }
+}
+
+extension NSSavePanel {
+    @MainActor
+    func ask(for w: NSWindow) async -> NSApplication.ModalResponse {
+        guard AppDelegate.quiet else { return await beginSheetModal(for: w) }
+        SelfTest.note("a file panel (answered Cancel)")
+        return .cancel
     }
 }

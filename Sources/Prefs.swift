@@ -34,8 +34,12 @@ final class Prefs: ObservableObject {
     @Published var textWidth = 980 { didSet { save() } }
     // The Files tree: locked, nothing is dragged; unlocked, files and folders are moved on disk by dragging them.
     @Published var treeLocked = true { didSet { save() } }
+    // The search box above the tree: "name" (file names) or "content" (the text of the files).
+    @Published var searchMode = "name" { didSet { save() } }
     @Published var recent: [String] = [] { didSet { save() } }
     @Published var recentFolders: [String] = [] { didSet { save() } }     // folders opened lately, newest first (6)
+    @Published var favorites: [String] = [] { didSet { save() } }         // starred files and folders, in the user's order
+    @Published var recentPanel = false { didSet { save() } }              // a RECENT block in the Files panel
     @Published var sampleHidden = false { didSet { save() } }              // the sample out of File → Open recent
     @Published var folders: [String] = [] { didSet { save() } }
     // The Files panel, as on Windows: pinned folders go first; the rest in the chosen order; each folder a colour.
@@ -72,8 +76,12 @@ final class Prefs: ObservableObject {
         outlineWidthRight = Prefs.clampWidth(d.object(forKey: "OutlineWidthRight") as? Double ?? 260)
         textWidth = [980, 1280, 1600, 0].contains(d.object(forKey: "TextWidth") as? Int ?? -1) ? d.integer(forKey: "TextWidth") : 980
         treeLocked = d.object(forKey: "TreeLocked") as? Bool ?? true
+        searchMode = d.string(forKey: "SearchMode") == "content" ? "content" : "name"
         recent = d.stringArray(forKey: "Recent") ?? []
         recentFolders = d.stringArray(forKey: "RecentFolders") ?? []
+        var seenFav = Set<String>()
+        favorites = (d.stringArray(forKey: "Favorites") ?? []).filter { !$0.isEmpty && seenFav.insert($0.lowercased()).inserted }
+        recentPanel = d.bool(forKey: "RecentPanel")
         sampleHidden = d.bool(forKey: "SampleHidden")
         folders = d.stringArray(forKey: "Folders") ?? []
         pinned = d.stringArray(forKey: "PinnedFolders") ?? []
@@ -89,13 +97,14 @@ final class Prefs: ObservableObject {
         let values: [String: Any] = [
             "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "AutoSave": autoSave, "ReadOnly": readOnly,
             "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "SideLayout": sideLayout, "SidebarWidthColumns": sidebarWidthColumns,
-            "OutlineShareColumns": outlineShareColumns, "OutlineWidthRight": outlineWidthRight, "TextWidth": textWidth, "TreeLocked": treeLocked, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
+            "OutlineShareColumns": outlineShareColumns, "OutlineWidthRight": outlineWidthRight, "TextWidth": textWidth, "TreeLocked": treeLocked, "SearchMode": searchMode, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
             "PinnedFolders": pinned, "StartupFolders": startupFolders, "FolderSort": folderSort, "FolderColors": folderColors,
-            "FolderColorMap": folderColorMap,
+            "FolderColorMap": folderColorMap, "Favorites": favorites, "RecentPanel": recentPanel,
         ]
         for (k, v) in values { d.set(v, forKey: k) }
     }
 
+    static let defaultSidebar = 260.0, defaultColumns = 520.0, defaultShare = 0.45   // a double click on a divider
     static let sidebarRange = 180.0...700.0
     static func clampWidth(_ w: Double) -> Double { min(max(w, sidebarRange.lowerBound), sidebarRange.upperBound) }
     static func clampShare(_ s: Double) -> Double { min(max(s, 0.1), 0.9) }
@@ -223,10 +232,59 @@ final class Prefs: ObservableObject {
             return p
         }
         func dedup(_ a: [String]) -> [String] { var seen = Set<String>(); return a.filter { seen.insert($0.lowercased()).inserted } }
-        let r = dedup(recent.map(map)), f = dedup(recentFolders.map(map))
+        let r = dedup(recent.map(map)), f = dedup(recentFolders.map(map)), fav = dedup(favorites.map(map))
         if r != recent { recent = r }
         if f != recentFolders { recentFolders = f }
+        if fav != favorites { favorites = fav }
     }
+
+    // MARK: favourites (one list for every folder of the panel, shown as its first block)
+
+    func isFavorite(_ path: String) -> Bool { favorites.contains { $0.lowercased() == path.lowercased() } }
+
+    func toggleFavorite(_ path: String) {
+        if isFavorite(path) { favorites.removeAll { $0.lowercased() == path.lowercased() } } else { favorites.append(path) }
+    }
+
+    /// A favourite is a folder when it is one on disk, or when it is gone and its name has no Markdown extension.
+    static func favIsDir(_ path: String) -> Bool {
+        var dir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: path, isDirectory: &dir) { return dir.boolValue }
+        return !["md", "markdown", "mdown", "mkd", "txt"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
+    }
+
+    /// As shown: folders first, then files, each in the list's order.
+    var favoritesShown: [String] { favorites.filter(Prefs.favIsDir) + favorites.filter { !Prefs.favIsDir($0) } }
+
+    /// Up or down among the favourites of the same kind.
+    func moveFavorite(_ path: String, by delta: Int) {
+        var shown = favoritesShown
+        guard let i = shown.firstIndex(where: { $0.lowercased() == path.lowercased() }) else { return }
+        let j = i + delta
+        guard shown.indices.contains(j), Prefs.favIsDir(shown[i]) == Prefs.favIsDir(shown[j]) else { return }
+        shown.swapAt(i, j)
+        favorites = shown
+    }
+
+    /// A favourite dragged onto another one takes its place.
+    func moveFavorite(_ path: String, onto target: String) {
+        var shown = favoritesShown
+        guard let from = shown.firstIndex(where: { $0.lowercased() == path.lowercased() }),
+              let to = shown.firstIndex(where: { $0.lowercased() == target.lowercased() }), from != to else { return }
+        let item = shown.remove(at: from)
+        shown.insert(item, at: to)
+        favorites = shown
+    }
+
+    func sortFavorites() {
+        favorites = favoritesShown.sorted {
+            let a = Prefs.favIsDir($0), b = Prefs.favIsDir($1)
+            if a != b { return a }
+            return URL(fileURLWithPath: $0).lastPathComponent.localizedStandardCompare(URL(fileURLWithPath: $1).lastPathComponent) == .orderedAscending
+        }
+    }
+
+    func removeMissingFavorites() { favorites = favorites.filter { FileManager.default.fileExists(atPath: $0) } }
 
     // MARK: appearance
 

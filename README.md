@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 10, 2026 · version 2.0.0 · GPL-2.0-only
+Gabriel Castiglia · November 20, 2026 · version 2.2.1 · GPL-2.0-only
 
 English · [Español](README.es.md)
 
@@ -46,7 +46,7 @@ could not verify…"). Open System Settings → Privacy & Security, scroll to th
 check the download first:
 
 ```
-shasum -a 256 Gryphmark-1.0.1.pkg
+shasum -a 256 Gryphmark-2.2.1.pkg
 ```
 
 Gryphmark can open Markdown files from the Finder (right-click → Open With → Gryphmark) without taking them over
@@ -67,6 +67,28 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
   dividers to change the width of the sidebar and the room of Files and Contents; each window keeps them.
   View → Layout puts Files and Contents side by side, or Contents on the right of the text, and each layout keeps
   its own widths. View → Text width widens the column of the Visual and GitHub views (Normal is GitHub's 980 px).
+  The layout button at the right end of the toolbar is drawn as the current layout and shows every layout drawn
+  (no sidebar, stacked, side by side, Contents on the right). The dividers have a visible handle that takes the
+  accent colour under the pointer; a double click gives the usual size back.
+- Search in the folders (⇧⌘F, or Edit → Search in folders): the box above the tree looks for a file by its name
+  or for words inside every Markdown file of the open folders, capitals and accents aside. Results come grouped by
+  file, each line with its number and the match in bold; ↓ and ↑ move through them and Return or a click opens the
+  file at that very match, with the find bar showing it, also in the Visual and GitHub views, which hide the link
+  addresses and tags of the text. Esc or an empty box gives the tree back.
+- Favourites: the star at the right of a row (faint under the pointer, golden when on), right-click → *Add to
+  favourites*, or File → Favourite for the open file. Favourite files and folders make one list for every folder,
+  the first block of the Files panel, folders first and each file with its folder in grey; a favourite folder opens
+  like a tree. Drag a favourite onto another to reorder them, or right-click: Move up, Move down, Sort A → Z, Remove
+  the ones that no longer exist, Empty the list. A favourite renamed or moved from the panel follows its file.
+- A RECENT block with the last files opened, under the favourites. Off by default: View → Recent Files in the
+  Panel, or the panel's ⋯ menu.
+- Updates that install themselves: Help → Check for updates, and a check once a day. When there is a newer
+  version, one question: Update now, What's new or Later. The package is downloaded and checked against the
+  release's `SHA256SUMS.txt` (a file that does not match is deleted and never opened), and the app inside it for
+  the same identifier, the announced version and the same signature; Gryphmark quits as when you quit it (it asks
+  about unsaved changes), the new app takes the place of the old one and opens. The dedicated instances take the
+  new version when the main app opens. A copy that is not `/Applications/Gryphmark.app` is offered the download
+  page; one installed by another user opens the checked package in Installer.
 - Renaming and moving files: right-click a file or folder in the Files panel → *Rename…*. To move, click the padlock
   in the panel header to unlock the tree and drag files and folders onto a folder; click it again to lock it. The
   two arrows of the header undo and redo each rename and move. All of it happens on disk; the open document follows
@@ -143,14 +165,14 @@ exact versions in `_npm/package-lock.json`. `scripts/manual.sh` makes the PDF ma
 `scripts/capturas.sh` the pictures in `docs/img`, and `tools/make_icons.py` the icon and its twelve colours
 (Python with numpy and Pillow).
 
-Gryphmark 1.0.1 was built and checked with:
+Gryphmark 2.2.1 was built and checked with:
 
 | Tool | Version |
 |---|---|
-| macOS | 27.2 (arm64, Apple M3) |
+| macOS | 27.2.1 (arm64, Apple M3) |
 | Command Line Tools / Swift | 27.2 / Swift 6.4.2 |
-| pandoc (manuals) | 3.13 |
-| Google Chrome (manuals) | 157.0.8103.39 |
+| pandoc (manuals) | 3.14 |
+| Google Chrome (manuals) | 158.0.8127.37 |
 | Python (icons) | 3.13.17 with numpy 2.5.4 and Pillow 12.3.0 |
 | Node.js / npm (web bundle, built for the Windows version) | 26.12.1 / 11.20.0, esbuild 0.25.5 |
 

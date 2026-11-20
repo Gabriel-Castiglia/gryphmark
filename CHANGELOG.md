@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.2.1 — 2026-11-20
+
+The same number as Gryphmark 2.2.1 for Windows. What 2.1.0 and 2.2.0 brought there, as it fits the Mac, and the fixes
+of 2.2.1.
+
+- Search in the folders (⇧⌘F, Edit → Search in folders): the box above the tree looks for a file by its name or for
+  words inside every Markdown file of the open folders, capitals and accents aside, only what the trees show.
+  Results come grouped by file, each line with its number and the match in bold; ↓ ↑ and Return work as in a list.
+  A click opens the file at that very match, with the find bar showing it.
+- A click on a found line lands on that very match also in the Visual and GitHub views, which hide link addresses
+  and tags: the line of the file goes with the click, and when the view holds another number of matches the page
+  takes the one whose paragraph shares most words with that line.
+- Favourite files and folders: the star of each row, right-click, or File → Favourite. One list for every folder,
+  the first block of the Files panel (folders first, each file with its folder in grey); a favourite folder opens
+  like a tree. Dragged onto one another, or right-click: Move up, Move down, Sort A → Z, Remove the ones that no
+  longer exist, Empty the list. A favourite renamed or moved from the panel follows its file.
+- A RECENT block with the last files opened, under the favourites. Off by default: View → Recent Files in the
+  Panel, or the panel's ⋯ menu.
+- The layout button at the right end of the toolbar, drawn as the current layout, with every layout drawn: no
+  sidebar, stacked, side by side and Contents on the right.
+- The dividers have a visible handle that takes the accent colour under the pointer; a double click gives the usual
+  size back.
+- Updates that install themselves (Help → Check for updates, and once a day): one question, then the package is
+  downloaded and checked against the release's `SHA256SUMS.txt`, its app checked for the same identifier, version
+  and signature, and swapped for the installed one as Gryphmark quits; the new one opens. The dedicated instances
+  take it when the main app opens.
+- The self-test hides every question in its quiet run and fails if a window or a question was seen.
+- The find bar no longer moves to the next match when its text is set to the same words from outside.
+- Not brought over from Windows: panes placed anywhere by dragging their title, and the Search pane as a pane of
+  its own (on the Mac the search lives above the tree).
+
 ## 2.0.0 — 2026-11-16
 
 macOS and Windows now share one version number: this is 2.0.0 on both.

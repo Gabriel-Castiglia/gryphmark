@@ -112,6 +112,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         Instance.refreshAll()
+        // Updates that install themselves (SelfUpdate.swift); only the main app checks, the dedicated instances are
+        // rebuilt from it when it opens.
+        let up = SelfUpdate.shared
+        up.appName = "Gryphmark"
+        up.repo = appRepo
+        up.version = appVersion
+        up.language = { Prefs.shared.lang == "es" ? "es" : "en" }
+        up.cleanUpAtStart()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { up.checkDaily() }
         if files.isEmpty {
             let d = newWindow()
             // Until a file of one's own has been opened, the app starts on the sample.
@@ -183,6 +192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
+
+    func applicationWillTerminate(_ n: Notification) { SelfUpdate.shared.finishIfStaged() }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let dirty = DocWindow.all.filter { $0.model.dirty }
@@ -347,35 +358,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func checkUpdates() {
-        let url = URL(string: "https://api.github.com/repos/\(appRepo)/releases/latest")!
-        var req = URLRequest(url: url)
-        req.setValue("Gryphmark/\(appVersion)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: req) { data, _, err in
-            let tag = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["tag_name"] as? String
-            DispatchQueue.main.async {
-                let a = NSAlert()
-                a.messageText = "Gryphmark"
-                guard let tag else {
-                    a.informativeText = L("UpdateError", err?.localizedDescription ?? "")
-                    a.runModal(); return
-                }
-                let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-                if latest.compare(appVersion, options: .numeric) == .orderedDescending {
-                    a.informativeText = L("UpdateAvailable", latest, appVersion)
-                    a.addButton(withTitle: L("Download"))
-                    a.addButton(withTitle: L("Later"))
-                    if a.runModal() == .alertFirstButtonReturn {
-                        NSWorkspace.shared.open(URL(string: "https://github.com/\(appRepo)/releases/latest")!)
-                    }
-                } else {
-                    a.informativeText = L("UpToDate", appVersion)
-                    a.runModal()
-                }
-            }
-        }.resume()
-    }
-
     // MARK: menus
 
     private func top(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
@@ -402,9 +384,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func layoutItem() -> NSMenuItem {
         let sub = NSMenu(title: L("Layout"))
         sub.delegate = states
-        for (key, label) in [("stacked", "LayoutStacked"), ("columns", "LayoutColumns"), ("right", "LayoutRight")] {
-            sub.addItem(item(L(label), on: { [weak self] in self?.prefs.sideLayout == key }) { [weak self] in
-                self?.prefs.sideLayout = key; self?.prefs.sidebar = true
+        for (key, label) in Layouts.all {
+            sub.addItem(item(L(label), on: { [weak self] in self.map { Layouts.current($0.prefs) == key } ?? false }) { [weak self] in
+                if let p = self?.prefs { Layouts.set(key, p) }
             })
         }
         let top = NSMenuItem(title: L("Layout"), action: nil, keyEquivalent: "")
@@ -446,7 +428,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bar = NSMenu()
         bar.addItem(top("Gryphmark", [
             item(L("About")) { [weak self] in self?.showAbout() },
-            item(L("CheckUpdates")) { [weak self] in self?.checkUpdates() },
+            item(L("CheckUpdates")) { SelfUpdate.shared.check(interactive: true) },
             .separator(),
             item(L("ThemeMenu"), key: ",") { [weak self] in self?.showTheme() },
             .separator(),
@@ -498,6 +480,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item(L("Save"), key: "s", doc { d in Task { await d.save(as: false) } }),
             item(L("SaveAs"), key: "s", mods: [.command, .shift], doc { d in Task { await d.save(as: true) } }),
             item(L("AutoSave"), on: { [weak self] in self?.prefs.autoSave == true }) { DocWindow.setAutoSave(!Prefs.shared.autoSave) },
+            item(L("FavCurrent"), on: { [weak self] in self?.current?.model.path.map { Prefs.shared.isFavorite($0.path) } == true },
+                 doc { d in
+                     guard let p = d.model.path?.path else { return }
+                     Prefs.shared.toggleFavorite(p)
+                     d.flash(L(Prefs.shared.isFavorite(p) ? "FavAdded" : "FavRemoved", URL(fileURLWithPath: p).lastPathComponent))
+                 }),
             item(L("ExportHtml"), key: "e", doc { $0.exportHtml() }),
             item(L("Print"), key: "p", doc { $0.command("print") }),
             .separator(),
@@ -515,6 +503,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .separator(),
             item(L("Find"), key: "f", doc { $0.showFind(replace: false) }),
             item(L("Replace"), key: "f", mods: [.command, .option], doc { $0.showFind(replace: true) }),
+            item(L("SearchFolders"), key: "f", mods: [.command, .shift], doc { $0.focusTreeSearch() }),
             item(L("FindNext"), key: "g", doc { $0.find(step: 1) }),
             item(L("Prev").components(separatedBy: " (")[0], key: "g", mods: [.command, .shift], doc { $0.find(step: -1) }),
             .separator(),
@@ -559,6 +548,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.prefs.sidebar.toggle()
             },
             layoutItem(),
+            item(L("RecentPanelMenu"), on: { [weak self] in self?.prefs.recentPanel == true }) { [weak self] in self?.prefs.recentPanel.toggle() },
             widthItem(),
             .separator(),
             item(L("ZoomIn"), key: "+", doc { $0.setZoom(Prefs.shared.zoom + 0.1) }),

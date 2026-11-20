@@ -3,7 +3,7 @@
 <h1 align="center">Gryphmark</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 10 de noviembre de 2026 · versión 2.0.0 · GPL-2.0-only
+Gabriel Castiglia · 20 de noviembre de 2026 · versión 2.2.1 · GPL-2.0-only
 
 [English](README.md) · Español
 
@@ -46,7 +46,7 @@ pudo verificar…»). Abrí Configuración del Sistema → Privacidad y segurida
 versión podés comprobar la descarga antes:
 
 ```
-shasum -a 256 Gryphmark-1.0.1.pkg
+shasum -a 256 Gryphmark-2.2.1.pkg
 ```
 
 Gryphmark puede abrir archivos Markdown desde el Finder (clic derecho → Abrir con → Gryphmark) sin quitárselos a
@@ -68,6 +68,30 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
   divisores se arrastran para cambiar el ancho de la barra y el lugar de Archivos y Contenido; cada ventana los recuerda.
   Ver → Disposición pone Archivos e índice lado a lado, o el índice a la derecha del texto, y cada disposición
   recuerda sus anchos. Ver → Ancho del texto ensancha la columna de las vistas Visual y GitHub (Normal es la de GitHub, 980 px).
+  El botón de disposición, en el extremo derecho de la barra de herramientas, se dibuja como la disposición actual
+  y muestra todas dibujadas (sin barra, apilado, lado a lado, Contenido a la derecha). Los divisores tienen una
+  agarradera visible que toma el color de acento bajo el puntero; un doble clic devuelve el tamaño de siempre.
+- Buscar en las carpetas (⇧⌘F, o Edición → Buscar en carpetas): el campo de arriba del árbol busca un archivo por
+  su nombre o palabras dentro de todos los archivos Markdown de las carpetas abiertas, sin distinguir mayúsculas ni
+  tildes. Los resultados vienen agrupados por archivo, cada línea con su número y la coincidencia en negrita; ↓ y ↑
+  los recorren, y Return o un clic abren el archivo en esa misma coincidencia, con la barra de búsqueda mostrándola,
+  también en las vistas Visual y GitHub, que ocultan las direcciones de los enlaces y las etiquetas del texto. Esc o
+  el campo vacío devuelven el árbol.
+- Favoritos: la estrella a la derecha de una fila (tenue bajo el puntero, dorada si está puesta), clic derecho →
+  *Agregar a favoritos*, o Archivo → Favorito para el archivo abierto. Los archivos y carpetas favoritos forman una
+  sola lista para todas las carpetas, el primer bloque del panel Archivos, primero las carpetas y cada archivo con su
+  carpeta en gris; una carpeta favorita se abre como un árbol. Para reordenarlos se arrastra un favorito sobre otro,
+  o clic derecho: Subir, Bajar, Ordenar A → Z, Quitar los que ya no existen, Vaciar la lista. Un favorito al que se
+  le cambia el nombre o se mueve desde el panel sigue a su archivo.
+- Un bloque RECIENTES con los últimos archivos abiertos, debajo de los favoritos. Viene apagado: Ver → Archivos
+  recientes en el panel, o el menú ⋯ del panel.
+- Actualizaciones que se instalan solas: Ayuda → Buscar actualizaciones, y un chequeo diario. Si hay una versión más
+  nueva, una sola pregunta: Actualizar ahora, Ver novedades o Más tarde. El paquete se descarga y se compara con el
+  `SHA256SUMS.txt` de la versión (si no coincide se borra sin abrirlo), y la app que trae tiene que tener el mismo
+  identificador, la versión anunciada y la misma firma; Gryphmark se cierra como cuando lo cerrás vos (pregunta por
+  los cambios sin guardar), la app nueva ocupa el lugar de la vieja y se abre. Las instancias dedicadas toman la
+  versión nueva cuando se abre la app principal. Una copia que no es `/Applications/Gryphmark.app` recibe la página
+  de descarga; una instalada por otro usuario abre el paquete ya comprobado en el Instalador.
 - Cambiar de nombre y mover archivos: clic derecho en un archivo o una carpeta del panel → *Cambiar nombre…*. Para
   mover, un clic en el candado de la cabecera del panel desbloquea el árbol, y los archivos y carpetas se arrastran
   sobre una carpeta; otro clic lo vuelve a bloquear. Las dos flechas de la cabecera deshacen y rehacen cada cambio de
@@ -148,7 +172,7 @@ versiones exactas de `_npm/package-lock.json`. `scripts/manual.sh` hace los manu
 README, `scripts/capturas.sh` las imágenes de `docs/img`, y `tools/make_icons.py` el ícono y sus doce colores
 (Python con numpy y Pillow).
 
-Las versiones de las herramientas con que se compiló y probó Gryphmark 1.0.1 están en la tabla del
+Las versiones de las herramientas con que se compiló y probó Gryphmark 2.2.1 están en la tabla del
 [README en inglés](README.md#building-from-source).
 
 ## Estructura

@@ -53,7 +53,9 @@ struct RootView: View {
                         let width = min(drag.live ?? (cols ? prefs.sidebarWidthColumns : prefs.sidebarWidth), max(range.lowerBound, room))
                         Sidebar(doc: doc, model: model, prefs: prefs, part: cols ? .columns : right ? .files : .stacked)
                             .frame(width: width).frame(maxHeight: .infinity)
-                        SplitHandle(vertical: true) { moved in
+                        SplitHandle(vertical: true, reset: {
+                            if cols { prefs.sidebarWidthColumns = Prefs.defaultColumns } else { prefs.sidebarWidth = Prefs.defaultSidebar }
+                        }) { moved in
                             if drag.from == nil { drag.from = width }
                             drag.live = cols ? Prefs.clampColumns(drag.from! + moved) : Prefs.clampWidth(drag.from! + moved)
                         } ended: {
@@ -69,7 +71,7 @@ struct RootView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     if right {
-                        SplitHandle(vertical: true, id: "rightDivider") { moved in
+                        SplitHandle(vertical: true, id: "rightDivider", reset: { prefs.outlineWidthRight = Prefs.defaultSidebar }) { moved in
                             if dragRight.from == nil { dragRight.from = rightW }
                             dragRight.live = Prefs.clampWidth(dragRight.from! - moved)
                         } ended: {
@@ -95,35 +97,45 @@ final class DragState: ObservableObject {
     @Published var live: Double?       // the size shown while dragging, saved when the divider is let go
     @Published var from: Double?       // the size when the drag began
     @Published var hovering = false
+    @Published var dragging = false
 }
 
-/// A divider that is dragged to resize the panes on both sides of it: a 1-point line in a wider strip that takes
-/// the mouse. `moved` gets the distance from where the drag began (in the window, so the moving divider does not
-/// change it); `ended` is where the new size is saved.
+/// A divider that is dragged to resize the panes on both sides of it: a line in a wider strip that takes the mouse,
+/// with a short grip in the middle so it is seen that it moves. Under the mouse or while dragged the line and the grip
+/// take the highlight colour; a double click puts the default size back. `moved` gets the distance from where the drag
+/// began (in the window, so the moving divider does not change it); `ended` is where the new size is saved.
 struct SplitHandle: View {
-    static let thickness: CGFloat = 5
+    static let thickness: CGFloat = 8
     let vertical: Bool                    // true: a vertical line, dragged left and right
     var id: String? = nil                 // its accessibility name (the self-test finds it by this)
+    var reset: (() -> Void)? = nil        // double click: the default size
     let moved: (Double) -> Void
     let ended: () -> Void
     @StateObject private var hover = DragState()    // hover.hovering: the resize cursor is pushed
+    @ObservedObject private var prefs = Prefs.shared
 
     var body: some View {
+        let lit = hover.hovering || hover.dragging
         ZStack {
             Color.clear
-            Rectangle().fill(Color(nsColor: .separatorColor))
-                .frame(width: vertical ? 1 : nil, height: vertical ? nil : 1)
+            Rectangle().fill(lit ? prefs.highlight : Color(nsColor: .separatorColor))
+                .frame(width: vertical ? (lit ? 2 : 1) : nil, height: vertical ? nil : (lit ? 2 : 1))
+            Capsule().fill(lit ? prefs.highlight : Color(nsColor: .tertiaryLabelColor))
+                .frame(width: vertical ? 4 : 30, height: vertical ? 30 : 4)
         }
         .frame(width: vertical ? Self.thickness : nil, height: vertical ? nil : Self.thickness)
         .contentShape(Rectangle())
+        .animation(.easeOut(duration: 0.12), value: lit)
         .onHover { inside in
             if inside, !hover.hovering { (vertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() }
             if !inside, hover.hovering { NSCursor.pop() }
             hover.hovering = inside
         }
         .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
-            .onChanged { moved(Double(vertical ? $0.translation.width : $0.translation.height)) }
-            .onEnded { _ in ended() })
+            .onChanged { hover.dragging = true; moved(Double(vertical ? $0.translation.width : $0.translation.height)) }
+            .onEnded { _ in hover.dragging = false; ended() })
+        .simultaneousGesture(TapGesture(count: 2).onEnded { reset?() })
+        .help(L("DividerTip"))
         .accessibilityIdentifier(id ?? (vertical ? "sidebarDivider" : "outlineDivider"))
     }
 }
@@ -184,6 +196,7 @@ struct ToolbarView: View {
         HStack(spacing: 6) {
             Button { prefs.sidebar.toggle() } label: { Image(systemName: "sidebar.left") }
                 .buttonStyle(.borderless).help(L("Sidebar"))
+            LayoutPicker(prefs: prefs)
             sep
             Menu {
                 ForEach(1 ... 6, id: \.self) { n in
@@ -221,6 +234,110 @@ struct ToolbarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+    }
+}
+
+// MARK: layout picker
+
+/// The four layouts, as View → Layout and the picker in the toolbar name them. "none" hides the sidebar.
+enum Layouts {
+    static let all: [(key: String, label: String)] = [("none", "LayoutNone"), ("stacked", "LayoutStacked"),
+                                                       ("columns", "LayoutColumns"), ("right", "LayoutRight")]
+    static func current(_ p: Prefs) -> String { p.sidebar ? p.sideLayout : "none" }
+    static func set(_ key: String, _ p: Prefs) {
+        if key == "none" { p.sidebar = false } else { p.sideLayout = key; p.sidebar = true }
+    }
+}
+
+/// A small drawing of a layout: the toolbar on top, Files in the strong highlight colour, Contents in a lighter
+/// one, and the text as grey lines. Drawn with shapes, so it follows the theme and the highlight colour.
+struct LayoutThumb: View {
+    let layout: String
+    var width: CGFloat = 64
+    var selected = false
+    @ObservedObject private var prefs = Prefs.shared
+
+    var body: some View {
+        let h = (width * 0.66).rounded(), bar = max(2, (h * 0.13).rounded())
+        let files = prefs.highlight.opacity(0.8), outline = prefs.highlight.opacity(0.38)
+        let gap: CGFloat = width < 30 ? 1 : 1.5
+        VStack(spacing: gap) {
+            Rectangle().fill(Color.secondary.opacity(0.35)).frame(height: bar)
+            HStack(spacing: gap) {
+                switch layout {
+                case "stacked":
+                    VStack(spacing: gap) { Rectangle().fill(files); Rectangle().fill(outline) }.frame(width: width * 0.3)
+                    text
+                case "columns":
+                    Rectangle().fill(files).frame(width: width * 0.22)
+                    Rectangle().fill(outline).frame(width: width * 0.22)
+                    text
+                case "right":
+                    Rectangle().fill(files).frame(width: width * 0.24)
+                    text
+                    Rectangle().fill(outline).frame(width: width * 0.22)
+                default:
+                    text
+                }
+            }
+        }
+        .frame(width: width, height: h)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: width < 30 ? 2.5 : 5))
+        .overlay(RoundedRectangle(cornerRadius: width < 30 ? 2.5 : 5)
+            .strokeBorder(selected ? prefs.highlight : Color.secondary.opacity(0.7), lineWidth: selected ? 2 : 1))
+    }
+
+    private var text: some View {
+        GeometryReader { g in
+            if width >= 30 {
+                VStack(alignment: .leading, spacing: max(2, g.size.height * 0.12)) {
+                    ForEach(0 ..< 4, id: \.self) { i in
+                        Capsule().fill(Color.secondary.opacity(0.45))
+                            .frame(width: g.size.width * (i == 0 ? 0.5 : i == 3 ? 0.45 : 0.8), height: max(1.5, g.size.height * 0.07))
+                    }
+                }
+                .padding(.top, g.size.height * 0.14).padding(.leading, g.size.width * 0.1)
+            }
+        }
+    }
+}
+
+/// What a popover is showing. A class and not @State (see DragState).
+final class Shown: ObservableObject { @Published var on = false }
+
+/// The toolbar button with the drawing of the layout in use; a click shows the four, large and named.
+struct LayoutPicker: View {
+    @ObservedObject var prefs: Prefs
+    @StateObject private var pop = Shown()
+
+    var body: some View {
+        Button { pop.on.toggle() } label: { LayoutThumb(layout: Layouts.current(prefs), width: 22).padding(.vertical, 1) }
+            .buttonStyle(.borderless).help(L("LayoutPickerTip"))
+            .accessibilityIdentifier("layoutPicker")
+            .popover(isPresented: $pop.on, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("Layout")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 10) {
+                        ForEach(Layouts.all, id: \.key) { l in
+                            let on = Layouts.current(prefs) == l.key
+                            Button { Layouts.set(l.key, prefs); pop.on = false } label: {
+                                VStack(spacing: 5) {
+                                    LayoutThumb(layout: l.key, width: 84, selected: on)
+                                    Text(L(l.label)).font(.system(size: 11, weight: on ? .semibold : .regular))
+                                        .multilineTextAlignment(.center).frame(width: 92).fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(5)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(on ? prefs.highlight.opacity(0.14) : .clear))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("layout-" + l.key)
+                        }
+                    }
+                }
+                .padding(12)
+            }
     }
 }
 
@@ -323,7 +440,7 @@ struct Sidebar: View {
             let outlineWidth = (usable * share).rounded()
             HStack(spacing: 0) {
                 files.frame(width: usable - outlineWidth).clipped()
-                SplitHandle(vertical: true, id: "panesDivider") { moved in
+                SplitHandle(vertical: true, id: "panesDivider", reset: { prefs.outlineShareColumns = Prefs.defaultShare }) { moved in
                     if drag.from == nil { drag.from = share }
                     drag.live = Prefs.clampShare(drag.from! - moved / usable)
                 } ended: {
@@ -343,7 +460,7 @@ struct Sidebar: View {
             let outlineHeight = (usable * share).rounded()
             VStack(spacing: 0) {
                 files.frame(height: usable - outlineHeight, alignment: .top).clipped()
-                SplitHandle(vertical: false) { moved in
+                SplitHandle(vertical: false, reset: { prefs.outlineShare = Prefs.defaultShare }) { moved in
                     if drag.from == nil { drag.from = share }
                     drag.live = Prefs.clampShare(drag.from! - moved / usable)
                 } ended: {
@@ -387,8 +504,33 @@ struct Sidebar: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
+                TreeSearchBar(doc: doc, search: doc.search, prefs: prefs)
+                SearchOrTree(doc: doc, search: doc.search, prefs: prefs, current: model.path) {
                 ScrollViewReader { proxy in
                     List {
+                        if !prefs.favorites.isEmpty {
+                            Section {
+                                ForEach(prefs.favoritesShown, id: \.self) { p in
+                                    FileTreeNode(doc: doc, node: FileNode(url: URL(fileURLWithPath: p), isFolder: Prefs.favIsDir(p)),
+                                                 current: model.path, highlight: prefs.highlight, tree: tree, inFavorites: true)
+                                }
+                            } header: {
+                                Text(L("FavTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                            }
+                        }
+                        if prefs.recentPanel {
+                            let shown = prefs.recent.filter { FileManager.default.fileExists(atPath: $0) }.prefix(8)
+                            if !shown.isEmpty {
+                                Section {
+                                    ForEach(Array(shown), id: \.self) { p in
+                                        FileRow(doc: doc, node: FileNode(url: URL(fileURLWithPath: p), isFolder: false), current: model.path,
+                                                highlight: prefs.highlight, tree: tree, inRecent: true)
+                                    }
+                                } header: {
+                                    Text(L("RecentTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                         ForEach(prefs.orderedFolders, id: \.self) { f in
                             let root = FileNode(url: URL(fileURLWithPath: f), isFolder: true)
                             Section {
@@ -408,6 +550,10 @@ struct Sidebar: View {
                     .onChange(of: prefs.folders) { _, _ in show(model.path, proxy) }
                     .onChange(of: ops.generation) { _, _ in tree.tick += 1; show(model.path, proxy) }
                 }
+                }
+                // what the search found follows the disk and the panel
+                .onChange(of: ops.generation) { _, _ in if doc.search.active { doc.search.schedule(delay: 0) } }
+                .onChange(of: prefs.folders) { _, _ in if doc.search.active { doc.search.schedule(delay: 0) } }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -543,6 +689,8 @@ struct FolderOptionsMenu: View {
                 }
             }
             Divider()
+            checkItem(L("RecentPanelMenu"), prefs.recentPanel) { prefs.recentPanel.toggle() }
+            Divider()
             Button(L("FolderAdd")) { (NSApp.delegate as? AppDelegate)?.pickFolder() }
             Button(L("CollapseAll")) { tree.open = [] }
             Button(L("FolderCloseAll")) { prefs.folders = [] }.disabled(prefs.folders.isEmpty)
@@ -558,20 +706,31 @@ struct FileTreeNode: View {
     let current: URL?
     let highlight: Color
     @ObservedObject var tree: TreeState
+    var inFavorites = false        // a row of the FAVOURITES block (its own menu, dragged to reorder)
+
+    // A favourite folder opens apart from the same folder in its tree.
+    private var openKey: String { inFavorites ? "fav:" + node.id : node.id }
 
     var body: some View {
         if node.isFolder {
-            DisclosureGroup(isExpanded: Binding(get: { tree.open.contains(node.id) },
-                                                set: { if $0 { tree.open.insert(node.id) } else { tree.open.remove(node.id) } })) {
+            DisclosureGroup(isExpanded: Binding(get: { tree.open.contains(openKey) },
+                                                set: { if $0 { tree.open.insert(openKey) } else { tree.open.remove(openKey) } })) {
                 ForEach(node.children ?? []) { FileTreeNode(doc: doc, node: $0, current: current, highlight: highlight, tree: tree) }
             } label: {
-                FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree)
+                FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree, inFavorites: inFavorites)
             }
         } else {
-            FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree).id(TreeState.canonical(node.url.path))
+            FileRow(doc: doc, node: node, current: current, highlight: highlight, tree: tree, inFavorites: inFavorites)
+                .id((inFavorites ? "fav:" : "") + TreeState.canonical(node.url.path))
         }
     }
 }
+
+/// What a favourite carries while it is dragged onto another one to take its place.
+let favDragPrefix = "gryphmark-favourite:"
+
+/// The star of a favourite: golden; faint on the other rows while the pointer is over them.
+let favGold = Color(red: 0xE3 / 255, green: 0xA0 / 255, blue: 0x08 / 255)
 
 struct FileRow: View {
     let doc: DocWindow
@@ -579,26 +738,84 @@ struct FileRow: View {
     let current: URL?
     let highlight: Color
     @ObservedObject var tree: TreeState
+    var inFavorites = false
+    var inRecent = false
     @ObservedObject private var prefs = Prefs.shared
     @StateObject private var drop = DragState()      // hovering: something of the tree is dragged over this row
+    @StateObject private var hover = Shown()         // the pointer is over the row: its star shows
+
+    private var missing: Bool { !FileManager.default.fileExists(atPath: node.url.path) }
+
+    /// The folder of a favourite or a recent file, in grey after its name.
+    private var whereText: String? {
+        guard inFavorites || inRecent else { return nil }
+        return (node.url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
+    }
 
     var body: some View {
         // The open file stands out as a selected row does: a filled band in the highlight colour.
         let isCurrent = !node.isFolder && current.map { TreeState.canonical($0.path) == TreeState.canonical(node.url.path) } == true
-        Label(node.url.lastPathComponent, systemImage: node.isFolder ? "folder" : "doc.text")
+        let fav = prefs.isFavorite(node.url.path)
+        HStack(spacing: 4) {
+            Label(node.url.lastPathComponent, systemImage: node.isFolder ? "folder" : "doc.text").lineLimit(1)
+            if let w = whereText {
+                Text(w).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head).layoutPriority(-1)
+            }
+            Spacer(minLength: 2)
+            if (fav || hover.on) && !FileOps.isRoot(node.url) {
+                Button { prefs.toggleFavorite(node.url.path); doc.flash(L(prefs.isFavorite(node.url.path) ? "FavAdded" : "FavRemoved", node.url.lastPathComponent)) } label: {
+                    Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10.5))
+                        .foregroundStyle(fav ? favGold : Color.secondary.opacity(0.55))
+                }
+                .buttonStyle(.borderless).help(L(fav ? "FavRemove" : "FavAdd"))
+            }
+        }
+            .onHover { hover.on = $0 }
+            .opacity(missing ? 0.45 : 1)
+            .help(missing ? L("FavMissing") : "")
             .fontWeight(isCurrent ? .semibold : .regular)
             .padding(.vertical, 2).padding(.horizontal, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 5).fill(isCurrent ? highlight.opacity(0.3) : drop.hovering ? highlight.opacity(0.18) : .clear))
             .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .contentShape(Rectangle())
-            .onTapGesture { if !node.isFolder { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) } }
-            .modifier(TreeDragSource(url: node.url, enabled: !prefs.treeLocked && !FileOps.isRoot(node.url)))
-            // a drop goes into this folder, or into the folder of this file
-            .onDrop(of: [.plainText], isTargeted: Binding(get: { drop.hovering }, set: { drop.hovering = $0 && !prefs.treeLocked })) {
-                FileOps.shared.drop($0, into: node.isFolder ? node.url : node.url.deletingLastPathComponent(), doc: doc)
+            .onTapGesture {
+                if missing { doc.flash(L("ItemGone")) }
+                else if !node.isFolder { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) }
+            }
+            .modifier(TreeDragSource(url: node.url, enabled: !inFavorites && !inRecent && !prefs.treeLocked && !FileOps.isRoot(node.url)))
+            .modifier(FavoriteDrag(path: node.url.path, enabled: inFavorites))
+            // a drop goes into this folder, or into the folder of this file; on a favourite, another favourite takes its place
+            .onDrop(of: [.plainText], isTargeted: Binding(get: { drop.hovering },
+                                                          set: { drop.hovering = $0 && (inFavorites || (!inRecent && !prefs.treeLocked)) })) { items in
+                if inFavorites {
+                    items.first?.loadObject(ofClass: NSString.self) { s, _ in
+                        guard let s = s as? String, s.hasPrefix(favDragPrefix) else { return }
+                        let from = String(s.dropFirst(favDragPrefix.count)), onto = node.url.path
+                        DispatchQueue.main.async { Prefs.shared.moveFavorite(from, onto: onto) }
+                    }
+                    return true
+                }
+                return inRecent ? false : FileOps.shared.drop(items, into: node.isFolder ? node.url : node.url.deletingLastPathComponent(), doc: doc)
             }
             .contextMenu {
+                if !FileOps.isRoot(node.url) {
+                    Button(L(fav ? "FavRemove" : "FavAdd")) { prefs.toggleFavorite(node.url.path) }
+                }
+                if inFavorites {
+                    Button(L("FavUp")) { prefs.moveFavorite(node.url.path, by: -1) }
+                    Button(L("FavDown")) { prefs.moveFavorite(node.url.path, by: 1) }
+                    Button(L("FavSortAz")) { prefs.sortFavorites() }
+                    Button(L("FavRemoveMissing")) { prefs.removeMissingFavorites() }
+                    Button(L("FavClear")) {
+                        let a = NSAlert()
+                        a.messageText = L("FavClearAsk")
+                        a.addButton(withTitle: L("FavClearBtn"))
+                        a.addButton(withTitle: L("Cancel"))
+                        if a.runModal() == .alertFirstButtonReturn { prefs.favorites = [] }
+                    }
+                }
+                Divider()
                 if !node.isFolder {
                     Button(L("FileOpen")) { (NSApp.delegate as? AppDelegate)?.open(node.url, from: doc) }
                     Button(L("OpenNewWindow")) { (NSApp.delegate as? AppDelegate)?.open(node.url, from: nil) }
@@ -618,6 +835,15 @@ struct FileRow: View {
                 Button(L("CollapseAll")) { tree.open = [] }
                 Button(L("Refresh")) { tree.tick += 1 }
             }
+    }
+}
+
+/// A favourite can always be dragged onto another one (the tree's padlock is about moving files on disk).
+struct FavoriteDrag: ViewModifier {
+    let path: String
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled { content.onDrag { NSItemProvider(object: (favDragPrefix + path) as NSString) } } else { content }
     }
 }
 
