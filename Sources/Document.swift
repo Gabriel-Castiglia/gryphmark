@@ -165,7 +165,7 @@ final class DocWindow: NSWindowController, NSWindowDelegate {
         case "findnext": find(step: 1)
         case "findprev": find(step: -1)
         case "findclose": hideFind()
-        case "outline", "files": prefs.sidebar.toggle()
+        case "outline", "files": prefs.togglePanes()
         case "search", "treesearch": focusTreeSearch()
         case "readonly": setReadOnly(!prefs.readOnly)
         case "mode1": setMode("visual")

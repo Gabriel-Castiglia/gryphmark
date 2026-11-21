@@ -32,34 +32,35 @@ struct RootView: View {
     let doc: DocWindow
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
-    @StateObject private var drag = DragState()     // the sidebar divider while it is dragged
-    @StateObject private var dragRight = DragState()   // the divider of Contents on the right of the text
+    @StateObject private var drag = DragState()        // the left sidebar's divider while it is dragged
+    @StateObject private var dragRight = DragState()   // the right sidebar's divider
+    @StateObject private var dock = DockState()        // a pane dragged by its title (Layout.swift)
 
     var body: some View {
         VStack(spacing: 0) {
             ToolbarView(doc: doc, prefs: prefs)
             Divider()
             GeometryReader { geo in
-                // View → Layout: stacked (Files above Contents), columns (side by side in the sidebar) or right
-                // (Contents on the right of the text). Each panel keeps its width (dragged, and remembered by each
-                // instance); the document never gets narrower than 380, so a narrow window takes the room from them.
-                let cols = prefs.sideLayout == "columns", right = prefs.sidebar && prefs.sideLayout == "right"
-                let rightW = right ? min(dragRight.live ?? prefs.outlineWidthRight,
-                                         max(Prefs.sidebarRange.lowerBound, geo.size.width - 380 - Prefs.sidebarRange.lowerBound - 2 * SplitHandle.thickness)) : 0
+                // Layout.swift: the panes go to either side of the text, one above the other or side by side. Each
+                // sidebar keeps its width (dragged, and remembered by each instance); the document never gets
+                // narrower than 380, so a narrow window takes the room from them, from the left one first.
+                let shape = Layouts.shape(prefs), t = Double(SplitHandle.thickness)
+                let left = shape.panes("left"), right = shape.panes("right")
+                let leftRange = Layouts.range(cols: shape.cols("left")), rightRange = Layouts.range(cols: shape.cols("right"))
+                let total = Double(geo.size.width)
+                let rightW = right.isEmpty ? 0 : min(dragRight.live ?? Layouts.width("right", prefs),
+                                                     max(rightRange.lowerBound, total - 380 - t - (left.isEmpty ? 0 : leftRange.lowerBound + t)))
+                let leftW = left.isEmpty ? 0 : min(drag.live ?? Layouts.width("left", prefs),
+                                                   max(leftRange.lowerBound, total - 380 - t - (right.isEmpty ? 0 : rightW + t)))
                 HStack(spacing: 0) {
-                    if prefs.sidebar {
-                        let range = cols ? Prefs.columnsRange : Prefs.sidebarRange
-                        let room = geo.size.width - 380 - SplitHandle.thickness - (right ? rightW + SplitHandle.thickness : 0)
-                        let width = min(drag.live ?? (cols ? prefs.sidebarWidthColumns : prefs.sidebarWidth), max(range.lowerBound, room))
-                        Sidebar(doc: doc, model: model, prefs: prefs, part: cols ? .columns : right ? .files : .stacked)
-                            .frame(width: width).frame(maxHeight: .infinity)
-                        SplitHandle(vertical: true, reset: {
-                            if cols { prefs.sidebarWidthColumns = Prefs.defaultColumns } else { prefs.sidebarWidth = Prefs.defaultSidebar }
-                        }) { moved in
-                            if drag.from == nil { drag.from = width }
-                            drag.live = cols ? Prefs.clampColumns(drag.from! + moved) : Prefs.clampWidth(drag.from! + moved)
+                    if !left.isEmpty {
+                        Sidebar(doc: doc, model: model, prefs: prefs, panes: left, cols: shape.cols("left"), dock: dock)
+                            .frame(width: leftW).frame(maxHeight: .infinity)
+                        SplitHandle(vertical: true, reset: { Layouts.setWidth("left", nil, prefs) }) { moved in
+                            if drag.from == nil { drag.from = leftW }
+                            drag.live = min(max(drag.from! + moved, leftRange.lowerBound), leftRange.upperBound)
                         } ended: {
-                            if let w = drag.live { if cols { prefs.sidebarWidthColumns = w } else { prefs.sidebarWidth = w } }
+                            if let w = drag.live { Layouts.setWidth("left", w, prefs) }
                             drag.live = nil; drag.from = nil
                         }
                     }
@@ -70,17 +71,20 @@ struct RootView: View {
                         StatusLine(model: model, prefs: prefs)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    if right {
-                        SplitHandle(vertical: true, id: "rightDivider", reset: { prefs.outlineWidthRight = Prefs.defaultSidebar }) { moved in
+                    if !right.isEmpty {
+                        SplitHandle(vertical: true, id: "rightDivider", reset: { Layouts.setWidth("right", nil, prefs) }) { moved in
                             if dragRight.from == nil { dragRight.from = rightW }
-                            dragRight.live = Prefs.clampWidth(dragRight.from! - moved)
+                            dragRight.live = min(max(dragRight.from! - moved, rightRange.lowerBound), rightRange.upperBound)
                         } ended: {
-                            if let w = dragRight.live { prefs.outlineWidthRight = w }
+                            if let w = dragRight.live { Layouts.setWidth("right", w, prefs) }
                             dragRight.live = nil; dragRight.from = nil
                         }
-                        Sidebar(doc: doc, model: model, prefs: prefs, part: .outline).frame(width: rightW).frame(maxHeight: .infinity)
+                        Sidebar(doc: doc, model: model, prefs: prefs, panes: right, cols: shape.cols("right"), dock: dock)
+                            .frame(width: rightW).frame(maxHeight: .infinity)
                     }
                 }
+                .onAppear { dock.body = geo.frame(in: .global); dock.window = doc.window }
+                .onChange(of: geo.size) { _, _ in dock.body = geo.frame(in: .global); dock.window = doc.window }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -194,9 +198,8 @@ struct ToolbarView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Button { prefs.sidebar.toggle() } label: { Image(systemName: "sidebar.left") }
+            Button { prefs.togglePanes() } label: { Image(systemName: "sidebar.left") }
                 .buttonStyle(.borderless).help(L("Sidebar"))
-            LayoutPicker(prefs: prefs)
             sep
             Menu {
                 ForEach(1 ... 6, id: \.self) { n in
@@ -231,113 +234,11 @@ struct ToolbarView: View {
                 Text(L("SegPreview")).tag("preview").help(L("TipPreview"))
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize().help(L("Mode"))
+            // the layout of the panes, at the right end as on Windows (Layout.swift)
+            LayoutPicker(prefs: prefs).padding(.leading, 2)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-    }
-}
-
-// MARK: layout picker
-
-/// The four layouts, as View → Layout and the picker in the toolbar name them. "none" hides the sidebar.
-enum Layouts {
-    static let all: [(key: String, label: String)] = [("none", "LayoutNone"), ("stacked", "LayoutStacked"),
-                                                       ("columns", "LayoutColumns"), ("right", "LayoutRight")]
-    static func current(_ p: Prefs) -> String { p.sidebar ? p.sideLayout : "none" }
-    static func set(_ key: String, _ p: Prefs) {
-        if key == "none" { p.sidebar = false } else { p.sideLayout = key; p.sidebar = true }
-    }
-}
-
-/// A small drawing of a layout: the toolbar on top, Files in the strong highlight colour, Contents in a lighter
-/// one, and the text as grey lines. Drawn with shapes, so it follows the theme and the highlight colour.
-struct LayoutThumb: View {
-    let layout: String
-    var width: CGFloat = 64
-    var selected = false
-    @ObservedObject private var prefs = Prefs.shared
-
-    var body: some View {
-        let h = (width * 0.66).rounded(), bar = max(2, (h * 0.13).rounded())
-        let files = prefs.highlight.opacity(0.8), outline = prefs.highlight.opacity(0.38)
-        let gap: CGFloat = width < 30 ? 1 : 1.5
-        VStack(spacing: gap) {
-            Rectangle().fill(Color.secondary.opacity(0.35)).frame(height: bar)
-            HStack(spacing: gap) {
-                switch layout {
-                case "stacked":
-                    VStack(spacing: gap) { Rectangle().fill(files); Rectangle().fill(outline) }.frame(width: width * 0.3)
-                    text
-                case "columns":
-                    Rectangle().fill(files).frame(width: width * 0.22)
-                    Rectangle().fill(outline).frame(width: width * 0.22)
-                    text
-                case "right":
-                    Rectangle().fill(files).frame(width: width * 0.24)
-                    text
-                    Rectangle().fill(outline).frame(width: width * 0.22)
-                default:
-                    text
-                }
-            }
-        }
-        .frame(width: width, height: h)
-        .background(Color(nsColor: .textBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: width < 30 ? 2.5 : 5))
-        .overlay(RoundedRectangle(cornerRadius: width < 30 ? 2.5 : 5)
-            .strokeBorder(selected ? prefs.highlight : Color.secondary.opacity(0.7), lineWidth: selected ? 2 : 1))
-    }
-
-    private var text: some View {
-        GeometryReader { g in
-            if width >= 30 {
-                VStack(alignment: .leading, spacing: max(2, g.size.height * 0.12)) {
-                    ForEach(0 ..< 4, id: \.self) { i in
-                        Capsule().fill(Color.secondary.opacity(0.45))
-                            .frame(width: g.size.width * (i == 0 ? 0.5 : i == 3 ? 0.45 : 0.8), height: max(1.5, g.size.height * 0.07))
-                    }
-                }
-                .padding(.top, g.size.height * 0.14).padding(.leading, g.size.width * 0.1)
-            }
-        }
-    }
-}
-
-/// What a popover is showing. A class and not @State (see DragState).
-final class Shown: ObservableObject { @Published var on = false }
-
-/// The toolbar button with the drawing of the layout in use; a click shows the four, large and named.
-struct LayoutPicker: View {
-    @ObservedObject var prefs: Prefs
-    @StateObject private var pop = Shown()
-
-    var body: some View {
-        Button { pop.on.toggle() } label: { LayoutThumb(layout: Layouts.current(prefs), width: 22).padding(.vertical, 1) }
-            .buttonStyle(.borderless).help(L("LayoutPickerTip"))
-            .accessibilityIdentifier("layoutPicker")
-            .popover(isPresented: $pop.on, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(L("Layout")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                    HStack(alignment: .top, spacing: 10) {
-                        ForEach(Layouts.all, id: \.key) { l in
-                            let on = Layouts.current(prefs) == l.key
-                            Button { Layouts.set(l.key, prefs); pop.on = false } label: {
-                                VStack(spacing: 5) {
-                                    LayoutThumb(layout: l.key, width: 84, selected: on)
-                                    Text(L(l.label)).font(.system(size: 11, weight: on ? .semibold : .regular))
-                                        .multilineTextAlignment(.center).frame(width: 92).fixedSize(horizontal: false, vertical: true)
-                                }
-                                .padding(5)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(on ? prefs.highlight.opacity(0.14) : .clear))
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("layout-" + l.key)
-                        }
-                    }
-                }
-                .padding(12)
-            }
     }
 }
 
@@ -410,64 +311,62 @@ final class TreeState: ObservableObject {
     static func canonical(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().path }
 }
 
-/// What a Sidebar shows: both panes stacked or side by side, or one of them (the layout "right" puts Contents on
-/// the other side of the text).
-enum SidebarPart { case stacked, columns, files, outline }
-
+/// One sidebar: one pane, or both one above the other or side by side, in the order of Prefs.outlineFirst.
 struct Sidebar: View {
     let doc: DocWindow
     @ObservedObject var model: DocModel
     @ObservedObject var prefs: Prefs
-    var part: SidebarPart = .stacked
+    var panes: [Pane]
+    var cols = false
+    let dock: DockState
     @StateObject private var tree = TreeState()
     @StateObject private var drag = DragState()     // the divider between Files and Contents while it is dragged
     @ObservedObject private var ops = FileOps.shared
 
     var body: some View {
-        switch part {
-        case .files: files
-        case .outline: outline
-        case .columns: sideBySide
-        case .stacked: stacked
+        if panes.count < 2 {
+            pane(panes.first ?? .files)
+        } else {
+            pair
         }
     }
 
-    // Files | Contents; the divider between them is dragged, and each instance keeps the share.
-    private var sideBySide: some View {
+    @ViewBuilder private func pane(_ p: Pane) -> some View {
+        if p == .files { files } else { outline }
+    }
+
+    // Both panes: the divider between them is dragged, and each instance keeps the share of Contents (one share
+    // for one above the other, another for side by side).
+    private var pair: some View {
         GeometryReader { geo in
-            let usable = max(1, Double(geo.size.width - SplitHandle.thickness))
-            let share = drag.live ?? prefs.outlineShareColumns
-            let outlineWidth = (usable * share).rounded()
-            HStack(spacing: 0) {
-                files.frame(width: usable - outlineWidth).clipped()
-                SplitHandle(vertical: true, id: "panesDivider", reset: { prefs.outlineShareColumns = Prefs.defaultShare }) { moved in
-                    if drag.from == nil { drag.from = share }
-                    drag.live = Prefs.clampShare(drag.from! - moved / usable)
-                } ended: {
-                    if let v = drag.live { prefs.outlineShareColumns = v }
-                    drag.live = nil; drag.from = nil
-                }
-                outline.frame(width: outlineWidth).clipped()
+            let usable = max(1, Double((cols ? geo.size.width : geo.size.height) - SplitHandle.thickness))
+            let saved = cols ? prefs.outlineShareColumns : prefs.outlineShare
+            let share = drag.live ?? saved
+            let outlineSize = (usable * share).rounded()
+            let first = panes[0], second = panes[1]
+            let firstSize = first == .outline ? outlineSize : usable - outlineSize
+            let sign: Double = first == .outline ? 1 : -1     // moving the divider grows the first pane
+            let handle = SplitHandle(vertical: cols, id: cols ? "panesDivider" : "outlineDivider", reset: {
+                if cols { prefs.outlineShareColumns = Prefs.defaultShare } else { prefs.outlineShare = Prefs.defaultShare }
+            }) { moved in
+                if drag.from == nil { drag.from = share }
+                drag.live = Prefs.clampShare(drag.from! + sign * moved / usable)
+            } ended: {
+                if let v = drag.live { if cols { prefs.outlineShareColumns = v } else { prefs.outlineShare = v } }
+                drag.live = nil; drag.from = nil
             }
-        }
-    }
-
-    private var stacked: some View {
-        // Files above, Contents below; the divider between them is dragged, and each instance keeps the share.
-        GeometryReader { geo in
-            let usable = max(1, Double(geo.size.height - SplitHandle.thickness))
-            let share = drag.live ?? prefs.outlineShare
-            let outlineHeight = (usable * share).rounded()
-            VStack(spacing: 0) {
-                files.frame(height: usable - outlineHeight, alignment: .top).clipped()
-                SplitHandle(vertical: false, reset: { prefs.outlineShare = Prefs.defaultShare }) { moved in
-                    if drag.from == nil { drag.from = share }
-                    drag.live = Prefs.clampShare(drag.from! - moved / usable)
-                } ended: {
-                    if let v = drag.live { prefs.outlineShare = v }
-                    drag.live = nil; drag.from = nil
+            if cols {
+                HStack(spacing: 0) {
+                    pane(first).frame(width: firstSize).clipped()
+                    handle
+                    pane(second).frame(width: usable - firstSize).clipped()
                 }
-                outline.frame(height: outlineHeight, alignment: .top).clipped()
+            } else {
+                VStack(spacing: 0) {
+                    pane(first).frame(height: firstSize, alignment: .top).clipped()
+                    handle
+                    pane(second).frame(height: usable - firstSize, alignment: .top).clipped()
+                }
             }
         }
     }
@@ -475,8 +374,8 @@ struct Sidebar: View {
     private var files: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(L("FilesTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                Spacer()
+                HStack { Text(L("FilesTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary); Spacer(minLength: 4) }
+                    .modifier(PaneGrip(pane: .files, dock: dock))
                 // renames and moves of the tree: undo, redo, and the padlock that allows dragging (FileOps)
                 Button { Task { await ops.undo(doc: doc) } } label: { Image(systemName: "arrow.uturn.backward") }
                     .buttonStyle(.borderless).disabled(ops.undoStack.isEmpty)
@@ -569,6 +468,7 @@ struct Sidebar: View {
         VStack(spacing: 0) {
             Text(L("OutlineTitle")).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 6)
+                .modifier(PaneGrip(pane: .outline, dock: dock))
             if model.outline.isEmpty {
                 Text(L("OutlineEmpty")).font(.system(size: 12)).foregroundStyle(.secondary)
                     .padding(.horizontal, 10).padding(.bottom, 10).frame(maxWidth: .infinity, alignment: .leading)

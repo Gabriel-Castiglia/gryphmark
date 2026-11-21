@@ -394,7 +394,7 @@ extension DocWindow {
     /// Edit → Search in folders: shows the sidebar and puts the caret in the search box.
     func focusTreeSearch() {
         guard !prefs.folders.isEmpty else { flash(L("SearchNoFolders")); return }
-        prefs.sidebar = true
+        prefs.showFiles()
         search.focus()
     }
 }

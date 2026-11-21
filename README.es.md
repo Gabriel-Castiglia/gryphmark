@@ -3,7 +3,7 @@
 <h1 align="center">Vigía</h1>
 <p align="center"><b>Escribí Markdown en forma visual. Miralo como en GitHub.</b></p>
 
-Gabriel Castiglia · 20 de noviembre de 2026 · versión 3.0.0 · GPL-2.0-only
+Gabriel Castiglia · 21 de noviembre de 2026 · versión 3.1.0 · GPL-2.0-only
 
 Hasta la versión 2.2.1 se llamaba Gryphmark: al instalar Vigía se quita, y su configuración, sus instancias
 dedicadas y sus borradores de recuperación pasan solos la primera vez que Vigía arranca.
@@ -49,7 +49,7 @@ pudo verificar…»). Abrí Configuración del Sistema → Privacidad y segurida
 versión podés comprobar la descarga antes:
 
 ```
-shasum -a 256 Vigia-3.0.0.pkg
+shasum -a 256 Vigia-3.1.0.pkg
 ```
 
 Vigía puede abrir archivos Markdown desde el Finder (clic derecho → Abrir con → Vigía) sin quitárselos a
@@ -66,14 +66,17 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - La barra y el menú Formato: títulos, negrita, cursiva, tachado, código en línea, listas, listas de tareas,
   sangría, cita, bloque de código, tabla, enlace, imagen y línea horizontal.
 - Avisos de GitHub, diagramas Mermaid, fórmulas (KaTeX), notas al pie y emojis en la vista GitHub.
-- La barra lateral (⇧⌘E): los archivos Markdown de una o más carpetas (Archivo → Abrir carpeta…) y el índice del
-  documento abierto; clic en un título para ir a él. El archivo abierto se resalta y sus carpetas se abren. Los
-  divisores se arrastran para cambiar el ancho de la barra y el lugar de Archivos y Contenido; cada ventana los recuerda.
-  Ver → Disposición pone Archivos e índice lado a lado, o el índice a la derecha del texto, y cada disposición
-  recuerda sus anchos. Ver → Ancho del texto ensancha la columna de las vistas Visual y GitHub (Normal es la de GitHub, 980 px).
-  El botón de disposición, en el extremo derecho de la barra de herramientas, se dibuja como la disposición actual
-  y muestra todas dibujadas (sin barra, apilado, lado a lado, Contenido a la derecha). Los divisores tienen una
-  agarradera visible que toma el color de acento bajo el puntero; un doble clic devuelve el tamaño de siempre.
+- Los paneles (⇧⌘E): Archivos, con los archivos Markdown de una o más carpetas (Archivo → Abrir carpeta…), y
+  Contenido, con los títulos del documento abierto; clic en un título para ir a él. El archivo abierto se resalta y
+  sus carpetas se abren. Cada panel va a la izquierda o a la derecha del texto, y dos paneles del mismo lado van uno
+  arriba del otro o lado a lado. El botón de disposición, en el extremo derecho de la barra de herramientas, se
+  dibuja como la disposición actual; un clic muestra las seis disposiciones dibujadas, un interruptor por panel y
+  un botón que los intercambia. Ver → Disposición tiene las mismas seis. Un panel también se arrastra por su título
+  (ARCHIVOS o CONTENIDO) hasta un borde de la ventana: mientras se mueve, el lugar que va a ocupar se ilumina con su
+  nombre, y Esc deja todo como estaba. Los divisores se arrastran para cambiar el ancho de cada lado y el lugar de
+  cada panel; cada disposición recuerda su ancho, y cada ventana los recuerda. Los divisores tienen una agarradera
+  visible que toma el color de acento bajo el puntero; un doble clic devuelve el tamaño de siempre. Ver → Ancho del
+  texto ensancha la columna de las vistas Visual y GitHub (Normal es la de GitHub, 980 px).
 - Buscar en las carpetas (⇧⌘F, o Edición → Buscar en carpetas): el campo de arriba del árbol busca un archivo por
   su nombre o palabras dentro de todos los archivos Markdown de las carpetas abiertas, sin distinguir mayúsculas ni
   tildes. Los resultados vienen agrupados por archivo, cada línea con su número y la coincidencia en negrita; ↓ y ↑
@@ -134,7 +137,12 @@ papelera y, si querés borrar también la configuración, corré `defaults delet
 - Hasta que abrís un archivo propio, Vigía arranca con el documento de ejemplo (Ayuda → Documento de ejemplo
   lo abre cuando quieras). En una ventana angosta, los botones de formato que no entran pasan al menú ⋯.
 - Ver → Tema… (⌘,) elige claro, oscuro o como macOS, y uno de doce colores para el resaltado y el ícono del
-  Dock. El ícono en el Finder y en Launchpad sigue dorado, porque cambiarlo rompería la firma de la app.
+  Dock; el celeste es el de fábrica. El ícono en el Finder y en Launchpad sigue celeste, porque cambiarlo rompería
+  la firma de la app.
+
+![Archivos a la izquierda del texto, el índice a la derecha](docs/img/layout-es.png)
+
+![El panel del botón de disposición](docs/img/layouts-es.png)
 
 ![La vista GitHub, oscura](docs/img/github-es.png)
 
@@ -175,7 +183,7 @@ versiones exactas de `_npm/package-lock.json`. `scripts/manual.sh` hace los manu
 README, `scripts/capturas.sh` las imágenes de `docs/img`, y `tools/make_icons.py` el ícono y sus doce colores
 (Python con numpy y Pillow).
 
-Las versiones de las herramientas con que se compiló y probó Vigía 3.0.0 están en la tabla del
+Las versiones de las herramientas con que se compiló y probó Vigía 3.1.0 están en la tabla del
 [README en inglés](README.md#building-from-source).
 
 ## Estructura

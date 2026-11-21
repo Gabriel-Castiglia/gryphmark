@@ -14,22 +14,27 @@ final class Prefs: ObservableObject {
 
     @Published var lang = "en" { didSet { save() } }
     @Published var theme = "auto" { didSet { save(); applyAppearance() } }      // auto, light, dark
-    @Published var accent = "gold" { didSet { save(); applyDockIcon() } }
+    @Published var accent = Accent.defaultKey { didSet { save(); applyDockIcon() } }
     @Published var mode = "visual" { didSet { save() } }                        // visual, source, preview
     @Published var spell = true { didSet { save() } }
     @Published var autoSave = true { didSet { save() } }                    // saves a moment after the typing stops
     @Published var readOnly = false { didSet { save() } }
     @Published var zoom = 1.0 { didSet { save() } }
-    @Published var sidebar = true { didSet { save() } }
-    // Width of the sidebar and the share of its height that Contents takes (the rest is Files); set when a divider is let go.
-    @Published var sidebarWidth = 260.0 { didSet { save() } }
+    @Published var sidebar = true { didSet { save() } }                 // the panes shown at all (⇧⌘E)
+    // The panes, as on Windows (Layout.swift): each one on or off, to the left or the right of the text; when both
+    // share a side, one above the other ("rows") or side by side ("cols"), Files first unless outlineFirst.
+    @Published var filesPanel = true { didSet { save() } }
+    @Published var outlinePanel = true { didSet { save() } }
+    @Published var filesSide = "left" { didSet { save() } }
+    @Published var outlineSide = "left" { didSet { save() } }
+    @Published var leftArrange = "rows" { didSet { save() } }
+    @Published var rightArrange = "rows" { didSet { save() } }
+    @Published var outlineFirst = false { didSet { save() } }
+    // The width of each sidebar, by what it holds (Layouts.widthKey); set when its divider is let go.
+    @Published var layoutWidths: [String: Double] = [:] { didSet { save() } }
+    // The share that Contents takes when both panes share a side: of the height, or of the width side by side.
     @Published var outlineShare = 0.45 { didSet { save() } }
-    // View → Layout: "stacked" (Files above Contents, as before), "columns" (Files | Contents side by side in the
-    // sidebar) or "right" (Contents on the right of the text). Each layout keeps its own widths.
-    @Published var sideLayout = "stacked" { didSet { save() } }
-    @Published var sidebarWidthColumns = 520.0 { didSet { save() } }
-    @Published var outlineShareColumns = 0.45 { didSet { save() } }   // part of that width for Contents
-    @Published var outlineWidthRight = 260.0 { didSet { save() } }
+    @Published var outlineShareColumns = 0.45 { didSet { save() } }
     // View → Text width: the column of the Visual and GitHub views in points (980 = GitHub's), 0 = the whole window.
     @Published var textWidth = 980 { didSet { save() } }
     // The Files tree: locked, nothing is dragged; unlocked, files and folders are moved on disk by dragging them.
@@ -61,19 +66,20 @@ final class Prefs: ObservableObject {
         defer { loading = false }
         lang = d.string(forKey: "Lang") ?? Prefs.macLanguage
         theme = d.string(forKey: "Theme") ?? "auto"
-        accent = d.string(forKey: "Accent") ?? "gold"
+        accent = d.string(forKey: "Accent") ?? Accent.defaultKey
         mode = d.string(forKey: "Mode") ?? "visual"
         spell = d.object(forKey: "Spell") as? Bool ?? true
         autoSave = d.object(forKey: "AutoSave") as? Bool ?? true
         readOnly = d.bool(forKey: "ReadOnly")
         zoom = max(0.5, min(3, d.object(forKey: "Zoom") as? Double ?? 1))
         sidebar = d.object(forKey: "Sidebar") as? Bool ?? true
-        sidebarWidth = Prefs.clampWidth(d.object(forKey: "SidebarWidth") as? Double ?? 260)
+        filesPanel = d.object(forKey: "FilesPanel") as? Bool ?? true
+        outlinePanel = d.object(forKey: "OutlinePanel") as? Bool ?? true
         outlineShare = Prefs.clampShare(d.object(forKey: "OutlineShare") as? Double ?? 0.45)
-        sideLayout = ["stacked", "columns", "right"].contains(d.string(forKey: "SideLayout") ?? "") ? d.string(forKey: "SideLayout")! : "stacked"
-        sidebarWidthColumns = Prefs.clampColumns(d.object(forKey: "SidebarWidthColumns") as? Double ?? 520)
         outlineShareColumns = Prefs.clampShare(d.object(forKey: "OutlineShareColumns") as? Double ?? 0.45)
-        outlineWidthRight = Prefs.clampWidth(d.object(forKey: "OutlineWidthRight") as? Double ?? 260)
+        let l = Prefs.layoutValues(d)
+        filesSide = l.filesSide; outlineSide = l.outlineSide; leftArrange = l.leftArrange; rightArrange = l.rightArrange
+        outlineFirst = l.outlineFirst; layoutWidths = l.widths
         textWidth = [980, 1280, 1600, 0].contains(d.object(forKey: "TextWidth") as? Int ?? -1) ? d.integer(forKey: "TextWidth") : 980
         treeLocked = d.object(forKey: "TreeLocked") as? Bool ?? true
         searchMode = d.string(forKey: "SearchMode") == "content" ? "content" : "name"
@@ -96,8 +102,9 @@ final class Prefs: ObservableObject {
         guard persist, !loading else { return }
         let values: [String: Any] = [
             "Lang": lang, "Theme": theme, "Accent": accent, "Mode": mode, "Spell": spell, "AutoSave": autoSave, "ReadOnly": readOnly,
-            "Zoom": zoom, "Sidebar": sidebar, "SidebarWidth": sidebarWidth, "OutlineShare": outlineShare, "SideLayout": sideLayout, "SidebarWidthColumns": sidebarWidthColumns,
-            "OutlineShareColumns": outlineShareColumns, "OutlineWidthRight": outlineWidthRight, "TextWidth": textWidth, "TreeLocked": treeLocked, "SearchMode": searchMode, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
+            "Zoom": zoom, "Sidebar": sidebar, "FilesPanel": filesPanel, "OutlinePanel": outlinePanel, "FilesSide": filesSide,
+            "OutlineSide": outlineSide, "LeftArrange": leftArrange, "RightArrange": rightArrange, "OutlineFirst": outlineFirst,
+            "LayoutWidths": layoutWidths, "OutlineShare": outlineShare, "OutlineShareColumns": outlineShareColumns, "TextWidth": textWidth, "TreeLocked": treeLocked, "SearchMode": searchMode, "Recent": recent, "RecentFolders": recentFolders, "SampleHidden": sampleHidden, "Folders": folders, "SampleShown": sampleShown,
             "PinnedFolders": pinned, "StartupFolders": startupFolders, "FolderSort": folderSort, "FolderColors": folderColors,
             "FolderColorMap": folderColorMap, "Favorites": favorites, "RecentPanel": recentPanel,
         ]
@@ -107,6 +114,51 @@ final class Prefs: ObservableObject {
     static let defaultSidebar = 260.0, defaultColumns = 520.0, defaultShare = 0.45   // a double click on a divider
     static let sidebarRange = 180.0...700.0
     static func clampWidth(_ w: Double) -> Double { min(max(w, sidebarRange.lowerBound), sidebarRange.upperBound) }
+
+    /// Where the panes go, read from the settings. Up to 3.0 there were three layouts ("SideLayout": stacked,
+    /// columns, right), each with its width: they are turned into the new values once, and the old keys removed.
+    static func layoutValues(_ d: UserDefaults) -> (filesSide: String, outlineSide: String, leftArrange: String,
+                                                    rightArrange: String, outlineFirst: Bool, widths: [String: Double]) {
+        func side(_ k: String) -> String { d.string(forKey: k) == "right" ? "right" : "left" }
+        func arrange(_ k: String) -> String { d.string(forKey: k) == "cols" ? "cols" : "rows" }
+        if d.string(forKey: "FilesSide") != nil {
+            return (side("FilesSide"), side("OutlineSide"), arrange("LeftArrange"), arrange("RightArrange"),
+                    d.bool(forKey: "OutlineFirst"), (d.dictionary(forKey: "LayoutWidths") as? [String: Double]) ?? [:])
+        }
+        let old = d.string(forKey: "SideLayout") ?? "stacked"
+        let outline = old == "right" ? "right" : "left", left = old == "columns" ? "cols" : "rows"
+        var w: [String: Double] = [:]
+        if let x = d.object(forKey: "SidebarWidth") as? Double { w["left:files+outline:rows"] = x; w["left:files"] = x }
+        if let x = d.object(forKey: "SidebarWidthColumns") as? Double { w["left:files+outline:cols"] = x }
+        if let x = d.object(forKey: "OutlineWidthRight") as? Double { w["right:outline"] = x }
+        for (k, v) in ["FilesSide": "left", "OutlineSide": outline, "LeftArrange": left, "RightArrange": "rows"] { d.set(v, forKey: k) }
+        d.set(w, forKey: "LayoutWidths")
+        for k in ["SideLayout", "SidebarWidth", "SidebarWidthColumns", "OutlineWidthRight"] { d.removeObject(forKey: k) }
+        return ("left", outline, left, "rows", false, w)
+    }
+
+    /// Whether any pane is shown.
+    var panesShown: Bool { sidebar && (filesPanel || outlinePanel) }
+
+    /// ⇧⌘E and the toolbar button: hides the panes, or shows them (both, if both had been turned off).
+    func togglePanes() {
+        if panesShown { sidebar = false } else { showPanes() }
+    }
+
+    func showPanes() {
+        sidebar = true
+        if !filesPanel && !outlinePanel { filesPanel = true; outlinePanel = true }
+    }
+
+    /// What needs the Files panel (a folder opened, the search box) shows it.
+    func showFiles() { sidebar = true; filesPanel = true }
+
+    /// The layout panel's switches: one pane on or off.
+    func togglePane(_ p: Pane) {
+        let on = sidebar && (p == .files ? filesPanel : outlinePanel)
+        if !sidebar { sidebar = true; filesPanel = false; outlinePanel = false }
+        if p == .files { filesPanel = !on } else { outlinePanel = !on }
+    }
     static func clampShare(_ s: Double) -> Double { min(max(s, 0.1), 0.9) }
     static let columnsRange = 360.0...1000.0       // the sidebar with Files and Contents side by side
     static func clampColumns(_ w: Double) -> Double { min(max(w, columnsRange.lowerBound), columnsRange.upperBound) }
@@ -352,7 +404,8 @@ struct Accent {
         Accent(key: "white", en: "White", es: "Blanco", light: 0x8E8E93, dark: 0xF5F5F7),
     ]
 
-    static func get(_ key: String) -> Accent { all.first { $0.key == key } ?? all[0] }
+    static let defaultKey = "sky"     // the lighthouse against the sky (3.1.0; gold before)
+    static func get(_ key: String) -> Accent { all.first { $0.key == key } ?? all.first { $0.key == defaultKey }! }
 }
 
 let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"

@@ -150,6 +150,8 @@ enum SelfTest {
 
         // Texts: both languages present and filled.
         check("strings: every text in both languages", STRINGS.values.allSatisfy { $0.count == 2 && !$0[0].isEmpty && !$0[1].isEmpty })
+        check("theme: sky blue is the default colour, and an unknown one falls back to it",
+              Prefs().accent == "sky" && Accent.get("nope").key == "sky")
 
         // The page and the sample.
         let app = NSApp.delegate as! AppDelegate
@@ -187,7 +189,7 @@ enum SelfTest {
             // The sidebar and the split between Files and Contents follow their dividers when dragged, and keep the
             // sizes (1.1.2 and earlier: a sidebar of 240 to 420 forgotten on every start, and no divider between the two).
             let p = Prefs.shared
-            p.sidebarWidth = 260; p.outlineShare = 0.45
+            Layouts.apply(Layouts.presets[0], p); p.layoutWidths = [:]; p.outlineShare = 0.45
             try? await Task.sleep(nanoseconds: 300_000_000)
             func drag(_ from: NSPoint, _ dx: CGFloat, _ dy: CGFloat) async {
                 func send(_ type: NSEvent.EventType, _ at: NSPoint) {
@@ -213,8 +215,8 @@ enum SelfTest {
                 await drag(NSPoint(x: before.minX - SplitHandle.thickness / 2, y: before.midY), 120, 0)
                 let after = d.web.view.convert(d.web.view.bounds, to: nil)
                 check("sidebar: its divider is dragged wider and the width is kept",
-                      abs(after.minX - before.minX - 120) < 4 && abs(p.sidebarWidth - 380) < 4,
-                      "page from \(before.minX) to \(after.minX), saved \(p.sidebarWidth)")
+                      abs(after.minX - before.minX - 120) < 4 && abs(Layouts.width("left", p) - 380) < 4,
+                      "page from \(before.minX) to \(after.minX), saved \(Layouts.width("left", p))")
                 // a double click on it puts the usual width back
                 let at = NSPoint(x: after.minX - SplitHandle.thickness / 2, y: after.midY)
                 for n in 1...2 {
@@ -225,9 +227,9 @@ enum SelfTest {
                     }
                 }
                 try? await Task.sleep(nanoseconds: 400_000_000)
-                check("sidebar: a double click on its divider gives the usual width", abs(p.sidebarWidth - Prefs.defaultSidebar) < 1,
-                      "width \(p.sidebarWidth)")
-                p.sidebarWidth = 380
+                check("sidebar: a double click on its divider gives the usual width", abs(Layouts.width("left", p) - Prefs.defaultSidebar) < 1,
+                      "width \(Layouts.width("left", p))")
+                Layouts.setWidth("left", 380, p)
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 // Files above, Contents below: the sidebar runs from the bottom of the window to the top of the page.
                 let usable = Double(after.maxY - SplitHandle.thickness)
@@ -235,18 +237,30 @@ enum SelfTest {
                 await drag(NSPoint(x: after.minX / 2, y: handleY), 0, CGFloat(usable * 0.2))
                 check("sidebar: the divider between Files and Contents is dragged and the split is kept",
                       abs(p.outlineShare - 0.65) < 0.03, "share \(p.outlineShare), usable \(usable)")
+                // a pane dragged by its title to the other edge goes there (as on Windows)
+                let cw = w.contentView?.bounds.width ?? 0
+                // the title is a line of text: the drag starts at the first height of the header that takes it
+                var tried: [CGFloat] = []
+                for down in stride(from: CGFloat(10), through: 30, by: 4) where p.filesSide == "left" {
+                    tried.append(down)
+                    await drag(NSPoint(x: 30, y: after.maxY - down), cw - 86, 0)
+                }
+                check("panes: Files dragged by its title to the right edge goes to the right",
+                      p.filesSide == "right" && p.outlineSide == "left", "files \(p.filesSide), contents \(p.outlineSide), tried \(tried) below the top")
+                Layouts.apply(Layouts.presets[0], p)
             } else {
                 skip("sidebar: its divider is dragged wider and the width is kept")
                 skip("sidebar: the divider between Files and Contents is dragged and the split is kept")
                 skip("sidebar: a double click on its divider gives the usual width")
+                skip("panes: Files dragged by its title to the right edge goes to the right")
             }
-            p.sidebarWidth = 700
+            Layouts.setWidth("left", 700, p)
             w.setContentSize(NSSize(width: 800, height: 600))
             try? await Task.sleep(nanoseconds: 400_000_000)
             let squeezed = d.web.view.convert(d.web.view.bounds, to: nil)
             check("sidebar: a wide sidebar in a narrow window leaves the document its 380",
                   squeezed.width >= 379 && squeezed.maxX <= 801, "page \(squeezed)")
-            p.sidebarWidth = 260; p.outlineShare = 0.45
+            p.layoutWidths = [:]; p.outlineShare = 0.45
             w.setContentSize(NSSize(width: 1180, height: 700))
             try? await Task.sleep(nanoseconds: 300_000_000)
             let minFrame = w.frameRect(forContentRect: NSRect(origin: .zero, size: DocWindow.minContent)).size
@@ -680,21 +694,24 @@ enum SelfTest {
               && FileOps.validName("a.md") && !FileOps.validName("a/b") && !FileOps.validName("..") && !FileOps.validName(" ") && !FileOps.validName("a:b"))
         d.model.dirty = false
 
-        // the three layouts, in a window wide enough for each
+        // the six layouts, in a window wide enough for each: the page sits between the sidebars
         if let w = d.window {
             w.setContentSize(NSSize(width: 1400, height: 800))
-            prefs.sidebar = true
+            prefs.showPanes()
             func page() -> NSRect { d.web.view.convert(d.web.view.bounds, to: nil) }
             let cw = w.contentView?.bounds.width ?? 0
-            prefs.sideLayout = "right"
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            let r = page()
-            check("layout: Contents on the right of the text", r.minX > 150 && r.maxX < cw - 150, "page \(r) in \(cw)")
-            prefs.sideLayout = "columns"
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            let c = page()
-            check("layout: Files and Contents side by side, the page after both", c.minX >= Prefs.columnsRange.lowerBound && c.maxX > cw - 2, "page \(c) in \(cw)")
-            prefs.sideLayout = "stacked"
+            var bad: [String] = []
+            for preset in Layouts.presets {
+                Layouts.apply(preset, prefs)
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                let r = page(), s = Layouts.shape(prefs)
+                let lw = Layouts.width("left", prefs), rw = Layouts.width("right", prefs)
+                let ok = (s.panes("left").isEmpty ? r.minX < 2 : abs(r.minX - lw - SplitHandle.thickness) < 3)
+                    && (s.panes("right").isEmpty ? r.maxX > cw - 2 : abs(cw - r.maxX - rw - SplitHandle.thickness) < 3)
+                if !ok { bad.append("\(preset.key): page \(r), left \(lw), right \(rw)") }
+            }
+            check("layout: each of the six layouts puts the page between its sidebars", bad.isEmpty, bad.joined(separator: "; ") + " in \(cw)")
+            Layouts.apply(Layouts.presets[0], prefs)
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
         prefs.folders = saved
@@ -730,7 +747,7 @@ enum SelfTest {
 
         // the box in the window: the panel shows it, the results replace the tree, a line opens the find bar there
         let saved = prefs.folders, savedMode = prefs.searchMode
-        prefs.folders = [root.path]; prefs.sidebar = true; prefs.sideLayout = "stacked"
+        prefs.folders = [root.path]; Layouts.apply(Layouts.presets[0], prefs)
         let boxShown = await wait(3) { d.search.field?.window === d.window }
         check("search: the box sits above the tree", boxShown, "field \(String(describing: d.search.field)) in \(String(describing: d.search.field?.window)) not \(String(describing: d.window))")
         d.focusTreeSearch()
@@ -758,14 +775,46 @@ enum SelfTest {
         d.search.query = ""
         check("search: an empty box gives the tree back", !d.search.active && d.search.rows.isEmpty)
 
-        // the layout picker: each drawing gives its layout, and View → Layout says the same
+        // the layout picker and View → Layout: each layout, the swap, a pane dropped on an edge, the switches
         var picked: [String] = []
-        for (key, _) in Layouts.all { Layouts.set(key, prefs); picked.append(Layouts.current(prefs)) }
-        check("layout picker: none, stacked, side by side and right", picked == ["none", "stacked", "columns", "right"]
-              && prefs.sidebar && prefs.sideLayout == "right", "\(picked)")
-        Layouts.set("none", prefs)
-        check("layout picker: none hides the sidebar and keeps the last layout", !prefs.sidebar && prefs.sideLayout == "right")
-        prefs.sideLayout = "stacked"; prefs.sidebar = true
+        for p in Layouts.presets { Layouts.apply(p, prefs); picked.append(Layouts.presets.first { Layouts.isPreset($0, prefs) }?.key ?? "-") }
+        check("layout: each of the six layouts is the one View → Layout marks", picked == Layouts.presets.map(\.key), "\(picked)")
+        Layouts.apply(Layouts.presets[2], prefs); Layouts.swap(prefs)
+        let swappedSides = prefs.filesSide == "right" && prefs.outlineSide == "left"
+        Layouts.apply(Layouts.presets[0], prefs); Layouts.swap(prefs)
+        let swappedOrder = Layouts.shape(prefs).panes("left") == [.outline, .files]
+        prefs.outlineFirst = false
+        check("layout: the swap trades the sides, or the order on one side", swappedSides && swappedOrder)
+        let area = CGSize(width: 1000, height: 600)            // edges of 220
+        let toRight = Layouts.target(.outline, at: CGPoint(x: 900, y: 300), in: area, prefs)
+        let above = Layouts.target(.outline, at: CGPoint(x: 50, y: 100), in: area, prefs)
+        let beside = Layouts.target(.outline, at: CGPoint(x: 200, y: 300), in: area, prefs)
+        let nowhere = Layouts.target(.outline, at: CGPoint(x: 500, y: 300), in: area, prefs)
+        check("layout: where a dragged pane would go (edge, above, beside, nowhere)",
+              toRight?.side == "right" && toRight?.arrange == nil && above?.side == "left" && above?.arrange == "rows" && above?.first == true
+              && beside?.arrange == "cols" && beside?.first == false && nowhere == nil,
+              "\(String(describing: toRight)) \(String(describing: above)) \(String(describing: beside))")
+        if let above { Layouts.dock(.outline, above, prefs) }
+        let wentAbove = Layouts.shape(prefs).panes("left") == [.outline, .files] && prefs.leftArrange == "rows"
+        if let toRight { Layouts.dock(.outline, toRight, prefs) }
+        let wentRight = prefs.outlineSide == "right" && Layouts.shape(prefs).panes("left") == [.files]
+        check("layout: a pane dropped above the other, then on the other edge", wentAbove && wentRight)
+        prefs.togglePane(.outline); let oneOff = !prefs.outlinePanel && prefs.panesShown
+        prefs.togglePane(.files); let bothOff = !prefs.panesShown
+        prefs.togglePanes(); let back = prefs.filesPanel && prefs.outlinePanel && prefs.panesShown
+        check("layout: each pane on and off, and ⇧⌘E brings both back", oneOff && bothOff && back)
+        Layouts.apply(Layouts.presets[0], prefs); prefs.outlineFirst = false
+        // the three layouts of 3.0 become the new values, with their widths, once
+        let suite = "io.github.gabriel-castiglia.vigia.selftest-layout"
+        if let ud = UserDefaults(suiteName: suite) {
+            ud.removePersistentDomain(forName: suite)
+            ud.set("right", forKey: "SideLayout"); ud.set(300.0, forKey: "SidebarWidth"); ud.set(280.0, forKey: "OutlineWidthRight")
+            let m = Prefs.layoutValues(ud), again = Prefs.layoutValues(ud)
+            check("layout: the settings of 3.0 become the new ones, with their widths",
+                  m.filesSide == "left" && m.outlineSide == "right" && m.widths["right:outline"] == 280 && m.widths["left:files"] == 300
+                  && ud.object(forKey: "SideLayout") == nil && again.outlineSide == "right" && again.widths == m.widths, "\(m)")
+            ud.removePersistentDomain(forName: suite)
+        }
 
         // the line goes with a click on a found line, for the page to pick the match in a view that hides Markdown
         check("search: the whole line goes with the click", lines.first?.text == "La búsqueda rápida", lines.first?.text ?? "-")

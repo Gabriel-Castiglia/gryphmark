@@ -3,7 +3,7 @@
 <h1 align="center">Vigía</h1>
 <p align="center"><b>Write Markdown visually. See it like GitHub.</b></p>
 
-Gabriel Castiglia · November 20, 2026 · version 3.0.0 · GPL-2.0-only
+Gabriel Castiglia · November 21, 2026 · version 3.1.0 · GPL-2.0-only
 
 Until version 2.2.1 it was called Gryphmark: installing Vigía removes it, and its settings, dedicated instances
 and recovery drafts come over the first time Vigía starts.
@@ -49,7 +49,7 @@ could not verify…"). Open System Settings → Privacy & Security, scroll to th
 check the download first:
 
 ```
-shasum -a 256 Vigia-3.0.0.pkg
+shasum -a 256 Vigia-3.1.0.pkg
 ```
 
 Vigía can open Markdown files from the Finder (right-click → Open With → Vigía) without taking them over
@@ -65,14 +65,16 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - The toolbar and the Format menu: headings, bold, italic, strikethrough, inline code, lists, task lists,
   indent, quote, code block, table, link, picture and horizontal rule.
 - GitHub alerts, Mermaid diagrams, math (KaTeX), footnotes and emoji in the GitHub view.
-- The sidebar (⇧⌘E): the Markdown files of one or more folders (File → Open folder…) and the contents of the
-  open document; click a heading to go to it. The open file is highlighted and its folders open. Drag the
-  dividers to change the width of the sidebar and the room of Files and Contents; each window keeps them.
-  View → Layout puts Files and Contents side by side, or Contents on the right of the text, and each layout keeps
-  its own widths. View → Text width widens the column of the Visual and GitHub views (Normal is GitHub's 980 px).
-  The layout button at the right end of the toolbar is drawn as the current layout and shows every layout drawn
-  (no sidebar, stacked, side by side, Contents on the right). The dividers have a visible handle that takes the
-  accent colour under the pointer; a double click gives the usual size back.
+- The panes (⇧⌘E): Files, with the Markdown files of one or more folders (File → Open folder…), and Contents, with
+  the headings of the open document; click a heading to go to it. The open file is highlighted and its folders
+  open. Each pane goes to the left or to the right of the text, and two panes on one side sit one above the other
+  or side by side. The layout button at the right end of the toolbar is drawn as the current layout; a click shows
+  the six layouts drawn, a switch for each pane and a button that swaps them. View → Layout lists the same six.
+  A pane can also be dragged by its title (FILES or CONTENTS) to an edge of the window: while it moves, the place
+  it would take is lit and named, and Esc leaves everything as it was. Drag the dividers to change the width of
+  each side and the room of each pane; each arrangement keeps its own width, and each window keeps them. The
+  dividers have a visible handle that takes the accent colour under the pointer; a double click gives the usual
+  size back. View → Text width widens the column of the Visual and GitHub views (Normal is GitHub's 980 px).
 - Search in the folders (⇧⌘F, or Edit → Search in folders): the box above the tree looks for a file by its name
   or for words inside every Markdown file of the open folders, capitals and accents aside. Results come grouped by
   file, each line with its number and the match in bold; ↓ and ↑ move through them and Return or a click opens the
@@ -128,7 +130,12 @@ and, to remove the settings too, run `defaults delete io.github.gabriel-castigli
 - Until you open a file of your own, Vigía starts with the sample document (Help → Sample document opens it
   any time). In a narrow window the formatting buttons that do not fit move to the ⋯ menu.
 - View → Theme… (⌘,) chooses light, dark or as macOS, and one of twelve colours for the highlights and the icon
-  in the Dock. The icon in Finder and Launchpad stays gold, because changing it would break the app's signature.
+  in the Dock; sky blue is the default. The icon in Finder and Launchpad stays sky blue, because changing it would
+  break the app's signature.
+
+![Files on the left of the text, Contents on the right](docs/img/layout-en.png)
+
+![The panel of the layout button](docs/img/layouts-en.png)
 
 ![The GitHub view, dark](docs/img/github-en.png)
 
@@ -168,7 +175,7 @@ exact versions in `_npm/package-lock.json`. `scripts/manual.sh` makes the PDF ma
 `scripts/capturas.sh` the pictures in `docs/img`, and `tools/make_icons.py` the icon and its twelve colours
 (Python with numpy and Pillow).
 
-Vigía 3.0.0 was built and checked with:
+Vigía 3.1.0 was built and checked with:
 
 | Tool | Version |
 |---|---|

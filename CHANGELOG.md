@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.0 — 2026-11-21
+
+The panes work as on Windows.
+
+- Files and Contents each go to the left or to the right of the text, and two on one side sit one above the other or
+  side by side: six layouts, in View → Layout and in the layout button, which moved to the right end of the toolbar
+  as on Windows. Its panel draws the six, turns each pane on or off and swaps them.
+- A pane is dragged by its title to an edge of the window. While it moves, a guide shows both edges and lights the
+  place it would take, with its name (on the left, above Files, to the right of Contents…); Esc cancels.
+- Each arrangement keeps its own width. The three layouts of 3.0, with their widths, come over the first time.
+- The default theme colour is sky blue, the lighthouse against the sky (it was dark gold), and so is the app's icon.
+  A colour chosen before stays.
+
 ## 3.0.0 — 2026-11-20
 
 **Gryphmark is now Vigía**, a name easier to remember: the one who keeps watch from above, as the app watches a

@@ -22,4 +22,7 @@ for idioma in en es; do
     $B --screenshot docs/img/visual-$idioma.png --lang $idioma --theme light --mode visual
     $B --screenshot docs/img/github-$idioma.png --lang $idioma --theme dark --mode preview
     $B --screenshot docs/img/theme-$idioma.png --view theme --lang $idioma --theme light
+    # the panes on both sides of the text, and the layout button's panel (3.1.0)
+    $B --screenshot docs/img/layout-$idioma.png --lang $idioma --theme light --mode visual --layout LayoutSplitFiles --folder "$RAIZ/samples"
+    $B --screenshot docs/img/layouts-$idioma.png --view layouts --lang $idioma --theme light --layout LayoutSplitFiles
 done

@@ -188,7 +188,7 @@ enum Instance {
         guard let p = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) as? [String: Any],
               let name = p["GMProfile"] as? String,
               (p["CFBundleIdentifier"] as? String)?.hasPrefix(mainID + ".profile.") == true else { return nil }
-        return Spec(name: name, accent: p["GMAccent"] as? String ?? "gold", folders: p["GMFolders"] as? [String] ?? [],
+        return Spec(name: name, accent: p["GMAccent"] as? String ?? Accent.defaultKey, folders: p["GMFolders"] as? [String] ?? [],
                     home: p["GMHome"] as? String, startReadOnly: p["GMStartReadOnly"] as? Bool ?? false,
                     startMode: p["GMStartMode"] as? String)
     }
@@ -236,7 +236,7 @@ enum Instance {
         }
         var folders: [String] = []
         for (i, x) in a.enumerated() where x == "--folder" && i + 1 < a.count { folders.append(path(a[i + 1])) }
-        let accent = value("--accent") ?? "gold"
+        let accent = value("--accent") ?? Accent.defaultKey
         guard Accent.all.contains(where: { $0.key == accent }) else {
             FileHandle.standardError.write(Data("unknown colour: \(accent) (\(Accent.all.map(\.key).joined(separator: ", ")))\n".utf8)); exit(2)
         }

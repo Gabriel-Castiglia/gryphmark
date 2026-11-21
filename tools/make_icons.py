@@ -11,7 +11,7 @@ original brightness, so edges and texture survive. Then the square is redrawn on
 icon grid: an 824 px rounded square centred on a 1024 px canvas.
 
 Writes:
-  icono/icono-1024.png          the default (gold) icon; scripts/compilar.sh makes the .icns
+  icono/icono-1024.png          the default (sky) icon; scripts/compilar.sh makes the .icns
   icono/accents/<key>.png       512 px, one per theme colour, for the Dock and the Theme window
   build/icon_sheet.png          a look at all of them
 Keep the keys and colours in sync with Sources/Theme.swift.
@@ -77,7 +77,7 @@ for i, (key, hexc) in enumerate(ACCENTS.items()):
     flat = Image.fromarray((np.concatenate([res, np.ones_like(a[..., 3:])], -1) * 255).round().astype(np.uint8), "RGBA")
     icon = on_grid(flat)
     icon.resize((512, 512), Image.LANCZOS).save(root / "icono" / "accents" / f"{key}.png", optimize=True)
-    if key == "gold":
+    if key == "sky":
         icon.save(root / "icono" / "icono-1024.png", optimize=True)
     small = icon.resize((150, 150), Image.LANCZOS)
     sheet.paste(small, (20 + (i % 6) * 170, 20 + (i // 6) * 170), small)

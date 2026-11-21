@@ -18,7 +18,7 @@ RAIZ="${0:A:h:h}"
 cd "$RAIZ"
 [[ "${FIRMA:-}" == adhoc ]] || source scripts/firma.sh
 
-VERSION="3.0.0"
+VERSION="3.1.0"
 COMPILACION="1"
 APP="build/Vigia.app"
 

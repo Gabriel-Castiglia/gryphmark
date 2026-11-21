@@ -77,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let t = argument(after: "--theme") { prefs.theme = t }
             if let a = argument(after: "--accent") { prefs.accent = a }
             if let m = argument(after: "--mode") { prefs.mode = m }
-            prefs.sidebar = true
+            prefs.showPanes()
         }
         if prefs.persist { prefs.applyStartupFolders() }
         if Instance.isDedicated && prefs.persist { startDedicated() }
@@ -141,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if UserDefaults.standard.object(forKey: "Accent") == nil, let a = Instance.accent { prefs.accent = a }
         if Instance.startReadOnly { prefs.readOnly = true }
         if let m = Instance.startMode, ["visual", "source", "preview"].contains(m) { prefs.mode = m }
-        prefs.sidebar = true
+        prefs.showPanes()
         prefs.sampleShown = true
     }
 
@@ -282,7 +282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func addFolder(_ u: URL) {
         if !prefs.folders.contains(u.path) { prefs.folders.append(u.path) }
         prefs.recentFolders = Array(([u.path] + prefs.recentFolders.filter { $0 != u.path }).prefix(6))
-        prefs.sidebar = true
+        prefs.showFiles()
     }
 
     static var samplePath: URL? {
@@ -383,15 +383,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func send(_ sel: Selector) -> () -> Void { { _ = NSApp.sendAction(sel, to: nil, from: nil) } }
 
-    /// View → Layout: Files above Contents, side by side, or Contents on the right of the text (as on Windows).
+    /// View → Layout: the six layouts and the swap, as on Windows (Layout.swift).
     private func layoutItem() -> NSMenuItem {
         let sub = NSMenu(title: L("Layout"))
         sub.delegate = states
-        for (key, label) in Layouts.all {
-            sub.addItem(item(L(label), on: { [weak self] in self.map { Layouts.current($0.prefs) == key } ?? false }) { [weak self] in
-                if let p = self?.prefs { Layouts.set(key, p) }
+        for preset in Layouts.presets {
+            sub.addItem(item(L(preset.key), on: { [weak self] in self.map { Layouts.isPreset(preset, $0.prefs) } ?? false }) { [weak self] in
+                if let p = self?.prefs { Layouts.apply(preset, p) }
             })
         }
+        sub.addItem(.separator())
+        sub.addItem(item(L("LayoutSwap")) { [weak self] in if let p = self?.prefs { Layouts.swap(p) } })
         let top = NSMenuItem(title: L("Layout"), action: nil, keyEquivalent: "")
         top.submenu = sub
         return top
@@ -547,8 +549,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item(L("ModeSource"), key: "2", on: { [weak self] in self?.prefs.mode == "source" }, doc { $0.setMode("source") }),
             item(L("ModePreview"), key: "3", on: { [weak self] in self?.prefs.mode == "preview" }, doc { $0.setMode("preview") }),
             .separator(),
-            item(L("Sidebar"), key: "e", mods: [.command, .shift], on: { [weak self] in self?.prefs.sidebar == true }) { [weak self] in
-                self?.prefs.sidebar.toggle()
+            item(L("Sidebar"), key: "e", mods: [.command, .shift], on: { [weak self] in self?.prefs.panesShown == true }) { [weak self] in
+                self?.prefs.togglePanes()
             },
             layoutItem(),
             item(L("RecentPanelMenu"), on: { [weak self] in self?.prefs.recentPanel == true }) { [weak self] in self?.prefs.recentPanel.toggle() },
@@ -597,15 +599,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         d.window?.setContentSize(size?.count == 2 ? NSSize(width: size![0], height: size![1]) : NSSize(width: 1180, height: 760))
         d.window?.center()
         let file = argument(after: "--open").map { URL(fileURLWithPath: $0) }
-        if let folder = argument(after: "--folder") { prefs.folders = [folder]; prefs.sidebar = true }   // the Files panel
-        if let list = argument(after: "--folders") { prefs.folders = list.split(separator: ":").map(String.init); prefs.sidebar = true }
+        if let folder = argument(after: "--folder") { prefs.folders = [folder]; prefs.showFiles() }   // the Files panel
+        if let list = argument(after: "--folders") { prefs.folders = list.split(separator: ":").map(String.init); prefs.showFiles() }
         if let pin = argument(after: "--pin") { prefs.pinned = [pin] }
         if let c = argument(after: "--folder-colors") { prefs.folderColors = c }
+        if let l = argument(after: "--layout"), let preset = Layouts.presets.first(where: { $0.key == l }) { Layouts.apply(preset, prefs) }
         d.onReady = { [weak self] in
             if let file { d.open(file) } else { self?.openSample(in: d) }
             var target: NSWindow? = d.window
             if view == "theme" { self?.showTheme(); target = self?.themeWindow }
             if view == "about" { self?.showAbout(); target = self?.aboutWindow }
+            if view == "layouts", let prefs = self?.prefs { target = AppDelegate.layoutPanelWindow(prefs) }   // the layout button's panel
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 Task { @MainActor in
                     var ok = false
@@ -615,6 +619,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    /// The layout button's panel in a window of its own, for the manual's picture (a popover is not drawn into a cache).
+    static func layoutPanelWindow(_ prefs: Prefs) -> NSWindow {
+        let host = NSHostingView(rootView: LayoutPanel(prefs: prefs).background(Color(nsColor: .windowBackgroundColor)))
+        let w = NSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize), styleMask: .borderless, backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        w.contentView = host
+        w.center()
+        w.orderFront(nil)
+        return w
     }
 
     /// The window as drawn by AppKit, with the web page's own snapshot laid where the page is
