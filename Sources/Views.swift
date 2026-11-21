@@ -442,6 +442,7 @@ struct Sidebar: View {
                         }
                     }
                     .listStyle(.sidebar)
+                    .scrollContentBackground(.hidden)   // the pane has one colour, as on Windows (the sidebar style painted a grey block)
                     .id(tree.tick)
                     // The open file is shown: its folders open and the list scrolls to it (as on Windows).
                     .onAppear { show(model.path, proxy) }
@@ -485,6 +486,7 @@ struct Sidebar: View {
                     }
                 }
                 .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)   // the pane has one colour, as on Windows (the sidebar style painted a grey block)
                 .frame(maxHeight: .infinity)
             }
         }
@@ -657,7 +659,11 @@ struct FileRow: View {
         let isCurrent = !node.isFolder && current.map { TreeState.canonical($0.path) == TreeState.canonical(node.url.path) } == true
         let fav = prefs.isFavorite(node.url.path)
         HStack(spacing: 4) {
-            Label(node.url.lastPathComponent, systemImage: node.isFolder ? "folder" : "doc.text").lineLimit(1)
+            // The icon's colour is set here: in a sidebar list macOS paints it with the Mac's own accent colour
+            // (green on Gabriel's Mac, with a red theme). As on Windows: folders in the theme colour, files muted.
+            Label { Text(node.url.lastPathComponent).lineLimit(1) } icon: {
+                Image(systemName: node.isFolder ? "folder" : "doc.text").foregroundStyle(node.isFolder ? highlight : Color.secondary)
+            }
             if let w = whereText {
                 Text(w).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head).layoutPriority(-1)
             }

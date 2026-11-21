@@ -12,6 +12,10 @@ The panes work as on Windows.
 - Each arrangement keeps its own width. The three layouts of 3.0, with their widths, come over the first time.
 - The default theme colour is sky blue, the lighthouse against the sky (it was dark gold), and so is the app's icon.
   A colour chosen before stays.
+- The panes have one colour, as on Windows: the lists of Files and Contents painted a grey block of their own,
+  shorter than the pane, under headers of another colour.
+- The icons of the Files panel take the theme colour (folders) or a muted grey (files), as on Windows. In a window
+  in front they took the Mac's own accent colour instead: green icons in a red theme.
 
 ## 3.0.0 — 2026-11-20
 

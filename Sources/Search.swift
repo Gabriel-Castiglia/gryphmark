@@ -300,7 +300,7 @@ struct TreeSearchResults: View {
                         if byName, let name = hit.name {
                             row(SearchState.Row(hit: i, line: nil)) {
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Label { Text(marked(name, prefs.highlight)).lineLimit(1) } icon: { Image(systemName: "doc.text") }
+                                    Label { Text(marked(name, prefs.highlight)).lineLimit(1) } icon: { Image(systemName: "doc.text").foregroundStyle(.secondary) }   // not the Mac's accent colour
                                     Text(hit.folder).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
                                         .padding(.leading, 22)
                                 }
@@ -325,6 +325,7 @@ struct TreeSearchResults: View {
                     }
                 }
                 .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)   // the pane has one colour, as on Windows (the sidebar style painted a grey block)
                 .onChange(of: search.selected) { _, s in
                     if let s, search.rows.indices.contains(s) { proxy.scrollTo(search.rows[s], anchor: .center) }
                 }
